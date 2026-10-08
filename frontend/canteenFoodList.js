@@ -1,292 +1,290 @@
-
-
 const canteenFoodList = [
   {
+    id: 1,
     name: "Samosa",
     category: "snack",
-    vegetarian: true,
-    price: 15,
-    image: "https://www.google.com/search?tbm=isch&q=samosa"
+    type: "veg",
+    price: 15
   },
   {
+    id: 2,
     name: "Kachori",
     category: "snack",
-    vegetarian: true,
-    price: 15,
-    image: "https://www.google.com/search?tbm=isch&q=kachori"
+    type: "veg",
+    price: 15
   },
   {
+    id: 3,
     name: "Pakora",
     category: "snack",
-    vegetarian: true,
-    price: 20,
-    image: "https://www.google.com/search?tbm=isch&q=pakora"
+    type: "veg",
+    price: 20
   },
   {
+    id: 4,
     name: "Vada Pav",
     category: "snack",
-    vegetarian: true,
-    price: 30,
-    image: "https://www.google.com/search?tbm=isch&q=vada+pav"
+    type: "veg",
+    price: 30
   },
   {
+    id: 5,
     name: "Bread Pakora",
     category: "snack",
-    vegetarian: true,
-    price: 20,
-    image: "https://www.google.com/search?tbm=isch&q=bread+pakora"
+    type: "veg",
+    price: 20
   },
   {
+    id: 6,
     name: "Aloo Tikki",
     category: "snack",
-    vegetarian: true,
-    price: 30,
-    image: "https://www.google.com/search?tbm=isch&q=aloo+tikki"
+    type: "veg",
+    price: 30
   },
   {
+    id: 7,
     name: "Poha",
     category: "breakfast",
-    vegetarian: true,
-    price: 30,
-    image: "https://www.google.com/search?tbm=isch&q=poha"
+    type: "veg",
+    price: 30
   },
   {
+    id: 8,
     name: "Upma",
     category: "breakfast",
-    vegetarian: true,
-    price: 30,
-    image: "https://www.google.com/search?tbm=isch&q=upma"
+    type: "veg",
+    price: 30
   },
   {
+    id: 9,
     name: "Idli",
     category: "breakfast",
-    vegetarian: true,
-    price: 30,
-    image: "https://www.google.com/search?tbm=isch&q=idli"
+    type: "veg",
+    price: 30
   },
   {
+    id: 10,
     name: "Dosa",
     category: "breakfast",
-    vegetarian: true,
-    price: 40,
-    image: "https://www.google.com/search?tbm=isch&q=dosa"
+    type: "veg",
+    price: 40
   },
   {
+    id: 11,
     name: "Masala Dosa",
     category: "breakfast",
-    vegetarian: true,
-    price: 50,
-    image: "https://www.google.com/search?tbm=isch&q=masala+dosa"
+    type: "veg",
+    price: 50
   },
   {
+    id: 12,
     name: "Aloo Paratha",
     category: "breakfast",
-    vegetarian: true,
-    price: 30,
-    image: "https://www.google.com/search?tbm=isch&q=aloo+paratha"
+    type: "veg",
+    price: 30
   },
   {
+    id: 13,
     name: "Chole Bhature",
     category: "main",
-    vegetarian: true,
-    price: 60,
-    image: "https://www.google.com/search?tbm=isch&q=chole+bhature"
+    type: "veg",
+    price: 60
   },
   {
+    id: 14,
     name: "Rajma Chawal",
     category: "main",
-    vegetarian: true,
-    price: 60,
-    image: "https://www.google.com/search?tbm=isch&q=rajma+chawal"
+    type: "veg",
+    price: 60
   },
   {
+    id: 15,
     name: "Dal Chawal",
     category: "main",
-    vegetarian: true,
-    price: 50,
-    image: "https://www.google.com/search?tbm=isch&q=dal+chawal"
+    type: "veg",
+    price: 50
   },
   {
+    id: 16,
     name: "Dal Roti",
     category: "main",
-    vegetarian: true,
-    price: 50,
-    image: "https://www.google.com/search?tbm=isch&q=dal+roti"
+    type: "veg",
+    price: 50
   },
   {
+    id: 17,
     name: "Kadhai Paneer",
     category: "main",
-    vegetarian: true,
-    price: 80,
-    image: "https://www.google.com/search?tbm=isch&q=kadhai+paneer"
+    type: "veg",
+    price: 80
   },
   {
+    id: 18,
     name: "Shahi Paneer",
     category: "main",
-    vegetarian: true,
-    price: 80,
-    image: "https://www.google.com/search?tbm=isch&q=shahi+paneer"
+    type: "veg",
+    price: 80
   },
   {
+    id: 19,
     name: "Aloo Gobi",
     category: "main",
-    vegetarian: true,
-    price: 60,
-    image: "https://www.google.com/search?tbm=isch&q=aloo+gobi"
+    type: "veg",
+    price: 60
   },
   {
+    id: 20,
     name: "Mix Veg",
     category: "main",
-    vegetarian: true,
-    price: 60,
-    image: "https://www.google.com/search?tbm=isch&q=mix+veg+indian"
+    type: "veg",
+    price: 60
   },
   {
+    id: 21,
     name: "Chole",
     category: "main",
-    vegetarian: true,
-    price: 50,
-    image: "https://www.google.com/search?tbm=isch&q=chole+indian"
+    type: "veg",
+    price: 50
   },
   {
+    id: 22,
     name: "Veg Biryani",
     category: "main",
-    vegetarian: true,
-    price: 70,
-    image: "https://www.google.com/search?tbm=isch&q=veg+biryani"
+    type: "veg",
+    price: 70
   },
   {
+    id: 23,
     name: "Egg Biryani",
     category: "main",
-    vegetarian: false,
-    price: 90,
-    image: "https://www.google.com/search?tbm=isch&q=egg+biryani"
+    type: "non-veg",
+    price: 90
   },
   {
+    id: 24,
     name: "Chicken Biryani",
     category: "main",
-    vegetarian: false,
-    price: 100,
-    image: "https://www.google.com/search?tbm=isch&q=chicken+biryani"
+    type: "non-veg",
+    price: 100
   },
   {
+    id: 25,
     name: "Egg Curry",
     category: "main",
-    vegetarian: false,
-    price: 60,
-    image: "https://www.google.com/search?tbm=isch&q=egg+curry"
+    type: "non-veg",
+    price: 60
   },
   {
+    id: 26,
     name: "Chicken Curry",
     category: "main",
-    vegetarian: false,
-    price: 100,
-    image: "https://www.google.com/search?tbm=isch&q=chicken+curry"
+    type: "non-veg",
+    price: 100
   },
   {
+    id: 27,
     name: "Rice",
     category: "staple",
-    vegetarian: true,
-    price: 30,
-    image: "https://www.google.com/search?tbm=isch&q=indian+rice"
+    type: "veg",
+    price: 30
   },
   {
+    id: 28,
     name: "Roti",
     category: "staple",
-    vegetarian: true,
-    price: 10,
-    image: "https://www.google.com/search?tbm=isch&q=roti"
+    type: "veg",
+    price: 10
   },
   {
+    id: 29,
     name: "Naan",
     category: "staple",
-    vegetarian: true,
-    price: 25,
-    image: "https://www.google.com/search?tbm=isch&q=naan"
+    type: "veg",
+    price: 25
   },
   {
+    id: 30,
     name: "Curd",
     category: "side",
-    vegetarian: true,
-    price: 20,
-    image: "https://www.google.com/search?tbm=isch&q=indian+curd+dahi"
+    type: "veg",
+    price: 20
   },
   {
+    id: 31,
     name: "Raita",
     category: "side",
-    vegetarian: true,
-    price: 20,
-    image: "https://www.google.com/search?tbm=isch&q=raita"
+    type: "veg",
+    price: 20
   },
   {
+    id: 32,
     name: "Papad",
     category: "side",
-    vegetarian: true,
-    price: 10,
-    image: "https://www.google.com/search?tbm=isch&q=papad"
+    type: "veg",
+    price: 10
   },
   {
+    id: 33,
     name: "Pickle",
     category: "side",
-    vegetarian: true,
-    price: 10,
-    image: "https://www.google.com/search?tbm=isch&q=indian+pickle+achar"
+    type: "veg",
+    price: 10
   },
   {
+    id: 34,
     name: "Gulab Jamun",
     category: "dessert",
-    vegetarian: true,
-    price: 20,
-    image: "https://www.google.com/search?tbm=isch&q=gulab+jamun"
+    type: "veg",
+    price: 20
   },
   {
+    id: 35,
     name: "Jalebi",
     category: "dessert",
-    vegetarian: true,
-    price: 20,
-    image: "https://www.google.com/search?tbm=isch&q=jalebi"
+    type: "veg",
+    price: 20
   },
   {
+    id: 36,
     name: "Rasgulla",
     category: "dessert",
-    vegetarian: true,
-    price: 20,
-    image: "https://www.google.com/search?tbm=isch&q=rasgulla"
+    type: "veg",
+    price: 20
   },
   {
+    id: 37,
     name: "Kheer",
     category: "dessert",
-    vegetarian: true,
-    price: 30,
-    image: "https://www.google.com/search?tbm=isch&q=kheer"
+    type: "veg",
+    price: 30
   },
   {
+    id: 38,
     name: "Tea",
     category: "beverage",
-    vegetarian: true,
-    price: 10,
-    image: "https://www.google.com/search?tbm=isch&q=indian+chai"
+    type: "veg",
+    price: 10
   },
   {
+    id: 39,
     name: "Coffee",
     category: "beverage",
-    vegetarian: true,
-    price: 20,
-    image: "https://www.google.com/search?tbm=isch&q=indian+coffee"
+    type: "veg",
+    price: 20
   },
   {
+    id: 40,
     name: "Lassi",
     category: "beverage",
-    vegetarian: true,
-    price: 30,
-    image: "https://www.google.com/search?tbm=isch&q=lassi"
+    type: "veg",
+    price: 30
   },
   {
+    id: 41,
     name: "Lemon Water",
     category: "beverage",
-    vegetarian: true,
-    price: 15,
-    image: "https://www.google.com/search?tbm=isch&q=lemon+water"
+    type: "veg",
+    price: 15
   }
 ];
 

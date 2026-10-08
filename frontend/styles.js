@@ -56,7 +56,8 @@ const styles = StyleSheet.create({
     fontWeight:'900',
     fontSize: 15,
     textTransform: 'uppercase',
-  },accountAvailabilityMessage:{
+  },
+  accountAvailabilityMessage:{
     marginTop:'8%',
     alignSelf:'center',
     cursor:'pointer',
@@ -70,14 +71,8 @@ const styles = StyleSheet.create({
   formInputLabel:{
     fontWeight:500
   },
-  searchInput:{
-    borderRadius:30,
-    padding:'5%',
-    outlineStyle:'none',
-    backgroundColor: 'rgb(228, 224, 224)',
-    textAlign:'center'
-  },
   defaultView:{
+    position:'relative',
     padding:'5%',
     flex: 1,
     gap:10
