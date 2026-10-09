@@ -54,23 +54,36 @@ Interactive API docs (Swagger): http://localhost:8000/docs
 
 The Android developer needs a public **HTTPS** base URL. Choose one option:
 
-### Option A: Deploy to Render (recommended, always online)
+### Option A: Permanent free hosting (Render + Neon + UptimeRobot)
 
-1. Push this folder to GitHub. `.env` is git-ignored, so secrets stay out of the repo.
-2. Go to https://render.com, then **New → Blueprint**, and select the repo.
-   `render.yaml` creates the API and a PostgreSQL database, generates `JWT_SECRET`,
-   and asks you for `SEED_STAFF_PASSWORD`.
-3. On every start, the service creates the tables and seeds the data automatically.
-4. Send the frontend developer:
-   - Base URL: `https://canteen-backend-xxxx.onrender.com`
-   - API docs: `https://canteen-backend-xxxx.onrender.com/docs`
-   - OpenAPI spec (Postman → Import → Link): `.../openapi.json`
+Gives one fixed HTTPS URL that works 24/7 from anywhere. Your laptop can be off. Everything
+uses free plans only.
 
-Notes: the free tier sleeps after ~15 minutes without requests, so the first request
-after that takes ~30–60 s. Open the URL a minute before the demo to wake it. Check
-Render's current free-database limits; free Postgres instances may expire. If yours
-does, create a free database on another provider (e.g. Neon) and paste its URL
-into `DATABASE_URL`. `postgres://` URLs are handled automatically.
+| Part | Service (free plan) | Purpose |
+|---|---|---|
+| API | [Render](https://render.com) web service | Runs FastAPI at `https://<name>.onrender.com` |
+| Database | [Neon](https://neon.tech) PostgreSQL | Cloud database (no expiry). It can be opened in pgAdmin. |
+| Keep-awake | [UptimeRobot](https://uptimerobot.com) | Pings `/` every 5 min so the free Render service doesn't sleep |
+
+1. **Neon:** sign up → create a project (region: Asia Pacific / Singapore) → copy the
+   connection string (`postgresql://...neon.tech/neondb?sslmode=require...`).
+2. **Render:** sign in with GitHub → **New → Blueprint** → select this repo. `render.yaml`
+   asks for:
+   - `DATABASE_URL`: paste the Neon connection string
+   - `SEED_STAFF_PASSWORD`: e.g. `Staff@123`
+
+   On every start, the service creates the tables and seeds the menu and staff account.
+3. **UptimeRobot:** add an **HTTP(s)** monitor for `https://<name>.onrender.com/` with a
+   5-minute interval.
+4. Share with the team:
+   - Base URL: `https://<name>.onrender.com`
+   - API docs: `https://<name>.onrender.com/docs`
+   - OpenAPI (Postman → Import → Link): `https://<name>.onrender.com/openapi.json`
+
+Pushing to the `main` branch redeploys automatically; the URL never changes.
+
+**pgAdmin → Neon:** Register → Server. Use the host, database, user and password from the
+Neon connection string, port `5432`, and on the **Parameters** tab set *SSL mode* = `require`.
 
 ### Option B: Tunnel from your laptop (local PostgreSQL + pgAdmin)
 
@@ -142,6 +155,7 @@ In Swagger, click **Authorize** and paste the token.
 | POST | `/auth/login` | – | Login with Institute ID + password; returns JWT and role |
 | GET | `/auth/me` | User | Current user |
 | POST | `/auth/logout` | User | Client-side logout acknowledgement |
+| GET | `/users` | CANTEEN_STAFF / ADMIN | List all registered users |
 | GET | `/users/me` | User | Profile |
 | GET | `/menu` | – | Menu; query params: `search`, `category_id`, `available_only` |
 | GET | `/menu/categories` | – | Categories |
