@@ -8,4 +8,4 @@ RUN npm install
 
 COPY . .
 
-CMD ["npx", "expo","start","--web"]
+CMD ["npx", "expo","start","--tunnel"]
