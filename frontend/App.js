@@ -5,6 +5,7 @@ import styles from './styles'
 import Login from "./screens/Login"
 import Register from "./screens/Register"
 import Home from './screens/Home';
+import Cart from './screens/Cart';
 
 import {createStaticNavigation} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
@@ -35,7 +36,12 @@ const RootStack = createNativeStackNavigator({
       options:{
         headerShown:false,
       }
-    },
+    },Cart: {
+      screen: Cart,
+      options:{
+        headerShown:false,
+      }
+    }
   },
 });
 

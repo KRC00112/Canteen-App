@@ -78,7 +78,10 @@ const styles = StyleSheet.create({
     gap:10
   },
   appBar:{
-    padding:'2%'
+    padding:'2%',
+    display:'flex',
+    flexDirection:'row',
+    justifyContent:'space-between'
   }
 });
 

@@ -147,6 +147,17 @@ filterPrefBtn:{
   backgroundColor:'white',
   borderWidth:2,
 
+},
+goToCartBtn:{
+      backgroundColor:'white',
+      borderColor: 'black',
+      borderStyle:'solid',
+      borderWidth: 2,
+      borderRadius:2,
+      padding:'5%',
+      boxShadow: '4px 5px rgba(0, 0, 0)',
+      outlineStyle: 'none',
+
 }
 });
 

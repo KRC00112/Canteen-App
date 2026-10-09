@@ -5,32 +5,26 @@ import { useNavigation } from "@react-navigation/native";
 import styles from "../styles";
 import home from "../styles/screens/home";
 import canteenFoodList from "../canteenFoodList";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ScrollView } from "react-native";
 
 
 
 
-function ItemListCard({item}){
-    const [cartCount, setCartCount]=useState(0);
+function ItemListCard({item, addingItemsToCart, removingItemsFromCart, cartItems}){
 
-    function incrementCartCount(){
-        setCartCount(prev=>prev+1)
+    function showCartCount(id){
+        let count= cartItems.find(x=>x.id===item.id)?.count
+        if (count){
+            return count;
+        }
+        return 0;
     }
-    function decrementCartCount(){
-        setCartCount(prev=>{
-            if(prev<=0){
-                return 0
-            }
-            return prev-1;
-        })
-    }
-
     return(
         <View key={item.id} style={home.itemListCard}>
             
             <View style={home.cardCountDisplay}>
-                <Text>In cart: {cartCount}</Text>
+                <Text>In cart: {showCartCount(item.id)}</Text>
             </View>
             <View style={home.itemOverview}>
                 <Text style={home.itemName}>{item.name}</Text>
@@ -51,11 +45,11 @@ function ItemListCard({item}){
                     <Text style={{color:'black'}}>View details  🛈 </Text>
                 </Pressable>
                 
-                <Pressable onPress={incrementCartCount} style={[home.cardCountBtn, {backgroundColor:'#2FFF2F'}]}>
+                <Pressable onPress={()=>{addingItemsToCart(item.id)}} style={[home.cardCountBtn, {backgroundColor:'#2FFF2F'}]}>
                     <Text style={{color:'black'}}>+1</Text>
                 </Pressable>
 
-                <Pressable onPress={decrementCartCount} style={[home.cardCountBtn, {backgroundColor:'#FF4911'}]}>
+                <Pressable onPress={()=>{removingItemsFromCart(item.id)}} style={[home.cardCountBtn, {backgroundColor:'#FF4911'}]}>
                     <Text style={{color:'black'}}>-1</Text>
                 </Pressable>
             </View>
@@ -105,7 +99,9 @@ function FilterForm({categories, handleCategorySelection, selectedCategories, ha
 }
 
 
-export default function Home(){
+export default function Home({route}){
+
+  
 
     const [foodList, setFoodList]=useState(canteenFoodList);
     const [showFilterForm, setShowFilterForm]=useState(false);
@@ -116,15 +112,47 @@ export default function Home(){
         min: 0,
         max: 1000
     })
+    const [cartItems, setCartItems]=useState([]);
+    const navigation = useNavigation();
 
+    useEffect(()=>{
+        if (route.params?.result) {
+            setCartItems(route.params.result);
+        }
+    }, [route.params?.result]);
 
     let categories=[];
     foodList.forEach(item=>{
         if(!categories.includes(item.category)){
             categories.push(item.category)
         }
+
     });
 
+
+    function removingItemsFromCart(id) {
+        setCartItems(prev => {
+            const existingItem=prev.find(item=>item.id === id);
+            if (!existingItem) {
+                return prev;
+            }
+
+            return prev.map(item=>item.id===id?{...item, count: item.count-1}:item).filter(item =>item.count>0);
+        });
+    }
+
+    function addingItemsToCart(id) {
+        setCartItems(prev => {
+            const existingItem = prev.find(item => item.id === id);
+
+            if (existingItem) {
+                return prev.map(item =>
+                    item.id===id?{...item, count: item.count+1}:item
+                );
+            }
+            return [...prev, { id, count: 1 }];
+        });
+    }
 
     function handleCategorySelection(category){
         if(selectedCategories.includes(category)){
@@ -171,6 +199,7 @@ export default function Home(){
                 <View style={home.nonScrollable}> 
                     <View style={styles.appBar}>
                         <Text>Welcome John Doe!</Text>
+                        <Pressable style={home.goToCartBtn} onPress={()=>navigation.navigate('Cart', {cartItems: cartItems, canteenFoodList: canteenFoodList})}><Text>Cart</Text></Pressable>
                     </View>
                     <View style={home.searchAndFilter}>
                         <TextInput
@@ -190,7 +219,13 @@ export default function Home(){
                         const searchInputMatch=item.name.includes(searchInput);  
 
                         if (categoryMatches && typeMatches && priceMatches && searchInputMatch) {
-                            return <ItemListCard key={item.id} item={item} />;
+                            return <ItemListCard 
+                                key={item.id} 
+                                item={item} 
+                                addingItemsToCart={addingItemsToCart}
+                                removingItemsFromCart={removingItemsFromCart}
+                                cartItems={cartItems}
+                            />;
                         }
                     })}
                 </ScrollView>
