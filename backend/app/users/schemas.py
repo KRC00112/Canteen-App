@@ -13,6 +13,14 @@ class UserProfile(BaseModel):
     created_at: Optional[datetime]
 
 
+class UserWithLoginStatus(UserProfile):
+    is_logged_in: bool
+    active_sessions: int
+    total_logins: int
+    last_login_at: Optional[datetime]
+    last_seen_at: Optional[datetime]
+
+
 class SessionOut(BaseModel):
     session_id: str
     logged_in_at: datetime

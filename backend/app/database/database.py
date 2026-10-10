@@ -24,7 +24,9 @@ def get_db():
 
 
 def init_db():
-    """Create all tables that don't exist yet."""
+    """Create all tables that don't exist yet, then (re)create the browsing views."""
     from app.database import models  # noqa: F401  (registers models on Base)
+    from app.database.views import create_views
 
     Base.metadata.create_all(bind=engine)
+    create_views(engine)

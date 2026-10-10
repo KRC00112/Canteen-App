@@ -1,11 +1,17 @@
 from typing import Dict, List
 
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.auth.security import utcnow
 from app.database.models import User, UserSession
-from app.users.schemas import LoggedInUser, LoggedInUsersOut, SessionOut, UserProfile
+from app.users.schemas import (
+    LoggedInUser,
+    LoggedInUsersOut,
+    SessionOut,
+    UserProfile,
+    UserWithLoginStatus,
+)
 
 
 def to_profile(user: User) -> UserProfile:
@@ -19,8 +25,36 @@ def to_profile(user: User) -> UserProfile:
     )
 
 
-def list_users(db: Session) -> List[UserProfile]:
-    return [to_profile(u) for u in db.scalars(select(User).order_by(User.id))]
+def list_users(db: Session) -> List[UserWithLoginStatus]:
+    """Every registered user, combined with their login status."""
+    active = (UserSession.logged_out_at.is_(None)) & (UserSession.expires_at > utcnow())
+    stats = {
+        row.user_id: row
+        for row in db.execute(
+            select(
+                UserSession.user_id,
+                func.sum(case((active, 1), else_=0)).label("active_sessions"),
+                func.count(UserSession.id).label("total_logins"),
+                func.max(UserSession.created_at).label("last_login_at"),
+                func.max(UserSession.last_seen_at).label("last_seen_at"),
+            ).group_by(UserSession.user_id)
+        )
+    }
+    result = []
+    for u in db.scalars(select(User).order_by(User.id)):
+        st = stats.get(u.id)
+        active_sessions = int(st.active_sessions) if st else 0
+        result.append(
+            UserWithLoginStatus(
+                **to_profile(u).model_dump(),
+                is_logged_in=active_sessions > 0,
+                active_sessions=active_sessions,
+                total_logins=st.total_logins if st else 0,
+                last_login_at=st.last_login_at if st else None,
+                last_seen_at=st.last_seen_at if st else None,
+            )
+        )
+    return result
 
 
 def list_logged_in_users(db: Session) -> LoggedInUsersOut:

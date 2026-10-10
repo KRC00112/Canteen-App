@@ -155,7 +155,7 @@ In Swagger, click **Authorize** and paste the token.
 | POST | `/auth/login` | – | Login with Institute ID + password; returns JWT and role |
 | GET | `/auth/me` | User | Current user |
 | POST | `/auth/logout` | User | End the current session (token stops working) |
-| GET | `/users` | CANTEEN_STAFF / ADMIN | List all registered users |
+| GET | `/users` | CANTEEN_STAFF / ADMIN | All registered users with login status (`is_logged_in`, `active_sessions`, `last_login_at`, ...) |
 | GET | `/users/logged-in` | CANTEEN_STAFF / ADMIN | All currently logged-in users and their sessions |
 | GET | `/users/me` | User | Profile |
 | GET | `/menu` | – | Menu; query params: `search`, `category_id`, `available_only` |
@@ -192,6 +192,21 @@ In Swagger, click **Authorize** and paste the token.
 Errors always look like `{ "detail": "..." }`, using these status codes:
 400 (empty cart), 401 (not logged in / bad credentials), 403 (wrong role),
 404 (not found), 409 (duplicate / out of stock), 422 (invalid input).
+
+## Browsing users in the database
+
+Two read-only views are created automatically (PostgreSQL). In pgAdmin they're under
+**Schemas → public → Views**; in the Neon console, query them in the **SQL Editor**:
+
+| View | Shows |
+|---|---|
+| `users_overview` | Every registered user and their login status: `is_logged_in`, `active_sessions`, `total_logins`, `last_login_at`, `last_seen_at` |
+| `logged_in_users` | Only the users logged in right now, one row per active login (device, IP, login time) |
+
+```sql
+SELECT * FROM users_overview;
+SELECT * FROM logged_in_users;
+```
 
 ## Business rules implemented
 

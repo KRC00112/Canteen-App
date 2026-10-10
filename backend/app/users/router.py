@@ -7,18 +7,18 @@ from app.auth.security import get_current_user, require_role
 from app.database.database import get_db
 from app.database.models import ADMIN, CANTEEN_STAFF, User
 from app.users import service
-from app.users.schemas import LoggedInUsersOut, UserProfile
+from app.users.schemas import LoggedInUsersOut, UserProfile, UserWithLoginStatus
 from app.users.service import to_profile
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
-@router.get("", response_model=List[UserProfile])
+@router.get("", response_model=List[UserWithLoginStatus])
 def list_users(
     staff: User = Depends(require_role(CANTEEN_STAFF, ADMIN)),
     db: Session = Depends(get_db),
 ):
-    """List all registered users (staff/admin only). Password hashes are never returned."""
+    """All registered users with their login status (staff/admin only). No password hashes."""
     return service.list_users(db)
 
 
