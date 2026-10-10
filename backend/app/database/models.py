@@ -52,8 +52,30 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     role: Mapped[Role] = relationship(lazy="joined")
+    sessions: Mapped[List["UserSession"]] = relationship(back_populates="user")
     cart: Mapped[Optional["Cart"]] = relationship(back_populates="user", uselist=False)
     orders: Mapped[List["Order"]] = relationship(back_populates="user")
+
+
+class UserSession(Base):
+    """One row per login. The JWT carries the session_id (jti), so a session can be
+    listed as "logged in" and ended on logout."""
+
+    __tablename__ = "user_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    logged_out_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    device: Mapped[Optional[str]] = mapped_column(String(255))
+    ip_address: Mapped[Optional[str]] = mapped_column(String(64))
+
+    user: Mapped[User] = relationship(back_populates="sessions", lazy="joined")
 
 
 class Category(Base):

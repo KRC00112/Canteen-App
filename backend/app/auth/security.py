@@ -1,19 +1,33 @@
+import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Callable
+from typing import Callable, Optional
 
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
 from app.database.database import get_db
-from app.database.models import ACCOUNT_ACTIVE, User
+from app.database.models import ACCOUNT_ACTIVE, User, UserSession
 
 _hasher = PasswordHasher()
 _bearer = HTTPBearer(auto_error=False)
+
+# Avoid a DB write on every request: refresh last_seen_at at most once a minute.
+LAST_SEEN_UPDATE_INTERVAL = timedelta(seconds=60)
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def as_utc(dt: datetime) -> datetime:
+    # SQLite returns naive datetimes; PostgreSQL returns aware ones.
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 # ---------- Passwords (Argon2) ----------
@@ -29,15 +43,33 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-# ---------- JWT ----------
+# ---------- Sessions + JWT ----------
 
-def create_access_token(user: User) -> str:
-    now = datetime.now(timezone.utc)
+def create_session(
+    db: Session, user: User, device: Optional[str] = None, ip_address: Optional[str] = None
+) -> UserSession:
+    now = utcnow()
+    session = UserSession(
+        session_id=uuid.uuid4().hex,
+        user_id=user.id,
+        created_at=now,
+        last_seen_at=now,
+        expires_at=now + timedelta(minutes=JWT_EXPIRE_MINUTES),
+        device=(device or "")[:255] or None,
+        ip_address=ip_address,
+    )
+    db.add(session)
+    db.commit()
+    return session
+
+
+def create_access_token(user: User, session: UserSession) -> str:
     payload = {
         "sub": str(user.id),
         "role": user.role.name,
-        "iat": now,
-        "exp": now + timedelta(minutes=JWT_EXPIRE_MINUTES),
+        "jti": session.session_id,
+        "iat": session.created_at,
+        "exp": session.expires_at,
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -52,27 +84,39 @@ def _unauthorized(detail: str) -> HTTPException:
 
 # ---------- Dependencies ----------
 
-def get_current_user(
+def get_current_session(
     credentials: HTTPAuthorizationCredentials = Depends(_bearer),
     db: Session = Depends(get_db),
-) -> User:
-    """Resolve the authenticated user from the `Authorization: Bearer <token>` header."""
+) -> UserSession:
+    """Resolve the login session from the `Authorization: Bearer <token>` header."""
     if credentials is None:
         raise _unauthorized("Not authenticated")
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = int(payload["sub"])
+        session_id = payload["jti"]
     except jwt.ExpiredSignatureError:
         raise _unauthorized("Token has expired")
     except (jwt.PyJWTError, KeyError, ValueError):
         raise _unauthorized("Invalid token")
 
-    user = db.get(User, user_id)
-    if user is None:
-        raise _unauthorized("User no longer exists")
+    session = db.scalar(select(UserSession).where(UserSession.session_id == session_id))
+    if session is None or session.user_id != user_id or session.logged_out_at is not None:
+        raise _unauthorized("Session has ended. Please log in again")
+
+    user = session.user
     if user.account_status != ACCOUNT_ACTIVE:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is not active")
-    return user
+
+    now = utcnow()
+    if now - as_utc(session.last_seen_at) > LAST_SEEN_UPDATE_INTERVAL:
+        session.last_seen_at = now
+        db.commit()
+    return session
+
+
+def get_current_user(session: UserSession = Depends(get_current_session)) -> User:
+    return session.user
 
 
 def require_role(*roles: str) -> Callable[..., User]:

@@ -143,7 +143,7 @@ To make someone FACULTY / CANTEEN_STAFF / ADMIN, change their `role_id` in the `
 1. `POST /auth/login` (Institute ID + password) returns `access_token`.
 2. Send the token on every protected request:
    `Authorization: Bearer <access_token>`
-3. Logout happens on the client: delete the stored token.
+3. `POST /auth/logout` ends the session on the server; the app should also delete the stored token.
 
 In Swagger, click **Authorize** and paste the token.
 
@@ -154,8 +154,9 @@ In Swagger, click **Authorize** and paste the token.
 | POST | `/auth/register` | – | Create an account: Institute ID, Username, Password, Confirm Password |
 | POST | `/auth/login` | – | Login with Institute ID + password; returns JWT and role |
 | GET | `/auth/me` | User | Current user |
-| POST | `/auth/logout` | User | Client-side logout acknowledgement |
+| POST | `/auth/logout` | User | End the current session (token stops working) |
 | GET | `/users` | CANTEEN_STAFF / ADMIN | List all registered users |
+| GET | `/users/logged-in` | CANTEEN_STAFF / ADMIN | All currently logged-in users and their sessions |
 | GET | `/users/me` | User | Profile |
 | GET | `/menu` | – | Menu; query params: `search`, `category_id`, `available_only` |
 | GET | `/menu/categories` | – | Categories |
