@@ -20,7 +20,7 @@ export default function Register(){
 
     async function sendData(){
         try{
-            const response=await fetch(`http://172.29.45.218:8000/auth/register`,{
+            const response=await fetch(`https://canteen-backend-xzko.onrender.com/auth/register`,{
                 method: 'POST',
                 headers:{
                     'Content-Type': 'application/json'

@@ -15,7 +15,7 @@ export default function Login(){
 
     async function getData(){
     try{
-        const response = await fetch(`http://172.29.45.218:8000/auth/login`,{
+        const response = await fetch(`https://canteen-backend-xzko.onrender.com/auth/login`,{
             method: 'POST',
             headers:{
                 'Content-Type':'application/json'
@@ -37,7 +37,7 @@ export default function Login(){
         Alert.alert(
             'Success', 'Logged In Successfully!', [
                 {
-                    text: 'Go to Login',
+                    text: 'Go to Home',
                     onPress:()=>navigation.navigate('Home')
                 }
             ]

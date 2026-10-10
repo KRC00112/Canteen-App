@@ -64,31 +64,31 @@ function FilterForm({categories, handleCategorySelection, selectedCategories, ha
     return(
         <View >
             <View style={home.filterForm}>
-                <Text>Preferences</Text>
+                <Text style={{fontWeight:'bold'}}>Preferences</Text>
                 <View>
-                    <Text>Select item type: </Text>
+                    <Text style={{fontWeight:'bold'}}>Select item type: </Text>
                     <View style={home.itemsGrouping}>
-                        <Pressable onPress={()=>handleItemTypeSelection('all')} style={[home.filterPrefBtn, itemType==="all"?{backgroundColor:'blue'}:{backgroundColor:'yellow'}]}><Text>All</Text></Pressable>
-                        <Pressable onPress={()=>handleItemTypeSelection('veg')} style={[home.filterPrefBtn, itemType==="veg"?{backgroundColor:'blue'}:{backgroundColor:'yellow'}]}><Text>Veg</Text></Pressable>
-                        <Pressable onPress={()=>handleItemTypeSelection('non-veg')} style={[home.filterPrefBtn, itemType==="non-veg"?{backgroundColor:'blue'}:{backgroundColor:'yellow'}]}><Text>Non-Veg</Text></Pressable>
+                        <Pressable onPress={()=>handleItemTypeSelection('all')} style={[home.filterPrefBtn, itemType==="all"?{backgroundColor:'yellow'}:{backgroundColor:'white'}]}><Text style={{fontWeight:'bold'}}>All</Text></Pressable>
+                        <Pressable onPress={()=>handleItemTypeSelection('veg')} style={[home.filterPrefBtn, itemType==="veg"?{backgroundColor:'yellow'}:{backgroundColor:'white'}]}><Text style={{fontWeight:'bold'}}>Veg</Text></Pressable>
+                        <Pressable onPress={()=>handleItemTypeSelection('non-veg')} style={[home.filterPrefBtn, itemType==="non-veg"?{backgroundColor:'yellow'}:{backgroundColor:'white'}]}><Text style={{fontWeight:'bold'}}>Non-Veg</Text></Pressable>
                     </View>
                 </View>
                 <View>
-                    <Text>Select item category: </Text>
+                    <Text style={{fontWeight:'bold'}}>Select item category: </Text>
                     <View style={home.itemsGrouping}>
                         {categories.map(item=>{
                             return(
-                                <Pressable key={item} style={[home.filterPrefBtn, selectedCategories.includes(item)?{backgroundColor:'blue'}:{backgroundColor:'yellow'}]} onPress={()=>handleCategorySelection(item)}><Text>{item}</Text></Pressable>
+                                <Pressable key={item} style={[home.filterPrefBtn, selectedCategories.includes(item)?{backgroundColor:'yellow'}:{backgroundColor:'white'}]} onPress={()=>handleCategorySelection(item)}><Text style={{fontWeight:'bold'}}>{item}</Text></Pressable>
                             );
                         })}
                     </View>
                 </View>
                 
                 <View>
-                    <Text>Item price limit: </Text>
+                    <Text style={{fontWeight:'bold'}}>Item price limit: </Text>
                     <View style={home.itemsGrouping}>
-                        <TextInput style={styles.inputText} placeholder="Minimum..." onChangeText={value=>handleMinPriceSelection(value)}/>
-                        <TextInput style={styles.inputText} placeholder="Maximum..." onChangeText={value=>handleMaxPriceSelection(value)}/>
+                        <TextInput style={[styles.inputText, {fontWeight:'bold'}]} placeholder="Minimum..." onChangeText={value=>handleMinPriceSelection(value)}/>
+                        <TextInput style={[styles.inputText, {fontWeight:'bold'}]} placeholder="Maximum..." onChangeText={value=>handleMaxPriceSelection(value)}/>
                     </View>
                 </View>
                 {/* <Pressable style={styles.button}><Text style={styles.buttonText}>Apply</Text></Pressable> */}

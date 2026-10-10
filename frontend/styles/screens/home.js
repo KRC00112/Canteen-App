@@ -133,6 +133,10 @@ const home = StyleSheet.create({
 filterForm:{
   backgroundColor:'red',
   padding:'5%',
+  borderWidth:3,
+  display:'flex',
+  flexDirection:'column',
+  gap:8
   
 },
 
@@ -146,6 +150,7 @@ itemsGrouping:{
 filterPrefBtn:{
   backgroundColor:'white',
   borderWidth:2,
+  padding:5
 
 },
 goToCartBtn:{
