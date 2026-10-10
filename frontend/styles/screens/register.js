@@ -9,6 +9,20 @@ const register = StyleSheet.create({
     width:'100%',
     height:'100%',
   },
+  confirmPasswordLabels:{
+    display: 'flex',
+    flexDirection: 'row',
+    justifyContent:'space-between'
+  },
+  confirmPasswordMismatchLabels:{
+    color:'red',
+  },
+   inputTextMismatch: {
+      color:'red',
+      borderColor: 'red',
+      boxShadow: '4px 5px rgba(255, 0, 0)',
+
+  }
 });
 
 export default register;

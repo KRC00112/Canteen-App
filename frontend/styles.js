@@ -18,11 +18,12 @@ const styles = StyleSheet.create({
   },
     inputText: {
       backgroundColor:'white',
+      color:'black',
       borderColor: 'black',
       borderStyle:'solid',
       borderWidth: 2,
       borderRadius:2,
-      padding:'5%',
+      padding:12,
       boxShadow: '4px 5px rgba(0, 0, 0)',
       outlineStyle: 'none',
   },
