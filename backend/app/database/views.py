@@ -1,6 +1,6 @@
-"""Read-only SQL views for browsing users in pgAdmin / the Neon console.
+"""Read-only SQL views for browsing users and the menu in pgAdmin / the Neon console.
 
-Views are computed live from the users and user_sessions tables, so they are never stale.
+Views are computed live from the underlying tables, so they are never stale.
 """
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -47,6 +47,23 @@ VIEWS = {
         JOIN roles r ON r.id = u.role_id
         WHERE {_ACTIVE}
         ORDER BY s.last_seen_at DESC
+    """,
+    # Every food item with its category, Veg / Non-Veg type and live stock.
+    "menu_overview": """
+        SELECT
+            f.id                         AS food_id,
+            f.name,
+            c.name                       AS category,
+            f.food_type,
+            f.price,
+            f.avg_cooking_time_minutes,
+            f.ingredients,
+            i.quantity                   AS stock,
+            i.availability               AS available
+        FROM food_items f
+        JOIN categories c ON c.id = f.category_id
+        LEFT JOIN inventory i ON i.food_item_id = f.id
+        ORDER BY c.id, f.food_type, f.name
     """,
 }
 

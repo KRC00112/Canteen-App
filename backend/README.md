@@ -11,14 +11,15 @@ placing a pre-order (with an order ID) and an incoming-orders list for staff.
 app/
   main.py            FastAPI app, registers every service router
   config.py          Settings loaded from .env
-  database/          Engine/session (database.py) + SQLAlchemy models (models.py)
+  database/          Engine/session, models, add-column migrations, DB views
   auth/              Register, login, JWT, password hashing, role checks
   users/             Profile
-  menu/              Menu, categories, search/filter
-  inventory/         Stock & availability rules
+  menu/              Menu, categories, search/filter (Veg/Non-Veg, price)
+  inventory/         Stock rules: cart holds, low-stock limits, stock status
   cart/              Cart and cart items
   orders/            Place an order, order history, order details
-  staff/             Staff-only incoming orders
+  staff/             Staff-only incoming orders, inventory and food item editing
+  notifications/     In-app notifications and "Notify me" stock alerts
 seed.py              Seeds roles, staff account, menu
 ```
 
@@ -132,7 +133,7 @@ docker compose up --build
 |---|---|
 | Roles | STUDENT, FACULTY, CANTEEN_STAFF, ADMIN |
 | Staff account | Institute ID `STAFF001` / `Staff@123` (no self-registration for staff) |
-| Menu | Veg Biryani ₹80 (25), Masala Dosa ₹50 (30), Chicken Roll ₹70 (20), Samosa ₹20 (50), Tea ₹15 (100), Coffee ₹25 (50) |
+| Menu | Veg Biryani ₹80 (25), Masala Dosa ₹50 (30), Chicken Roll ₹70 (20, **Non-Veg**), Samosa ₹20 (50), Tea ₹15 (100), Coffee ₹25 (50). All others are Veg; each has ingredients and an average cooking time |
 
 Anyone can register with a new Institute ID; the account is created with the STUDENT role.
 To make someone FACULTY / CANTEEN_STAFF / ADMIN, change their `role_id` in the `users` table
@@ -158,10 +159,10 @@ In Swagger, click **Authorize** and paste the token.
 | GET | `/users` | CANTEEN_STAFF / ADMIN | All registered users with login status (`is_logged_in`, `active_sessions`, `last_login_at`, ...) |
 | GET | `/users/logged-in` | CANTEEN_STAFF / ADMIN | All currently logged-in users and their sessions |
 | GET | `/users/me` | User | Profile |
-| GET | `/menu` | – | Menu; query params: `search`, `category_id`, `available_only` |
-| GET | `/menu/categories` | – | Categories |
-| GET | `/menu/{food_id}` | – | One food item |
-| GET | `/inventory/{food_id}` | – | Stock + availability |
+| GET | `/menu` | – (token optional) | Menu; query params: `search`, `category_id`, `food_type` (`VEG` / `NON_VEG`), `min_price`, `max_price`, `available_only` |
+| GET | `/menu/categories` | – | Categories, each with the food types it contains |
+| GET | `/menu/{food_id}` | – (token optional) | One food item |
+| GET | `/inventory/{food_id}` | – (token optional) | Availability + stock status (no exact count) |
 | GET | `/cart` | User | Cart with subtotal/total |
 | POST | `/cart/items` | User | Add item `{food_id, quantity}` |
 | PUT | `/cart/items/{item_id}` | User | Change quantity `{quantity}` |
@@ -171,6 +172,15 @@ In Swagger, click **Authorize** and paste the token.
 | GET | `/orders` | User | My order history |
 | GET | `/orders/{order_id}` | User | Order details (e.g. `ORD-20261010-0001`) |
 | GET | `/staff/orders` | CANTEEN_STAFF / ADMIN | Incoming orders (`?status=PLACED`) |
+| GET | `/staff/inventory` | CANTEEN_STAFF / ADMIN | Exact stock, units held in carts, units ordered in the last 24 h |
+| PUT | `/staff/inventory/{food_id}` | CANTEEN_STAFF / ADMIN | Set stock `{quantity, available?}` (restock) |
+| PATCH | `/staff/menu/{food_id}` | CANTEEN_STAFF / ADMIN | Edit `food_type`, `ingredients`, `avg_cooking_time_minutes`, `price`, `description` |
+| GET | `/notifications` | User | My notifications + `unread_count` (`?unread_only=true`) |
+| POST | `/notifications/{id}/read` | User | Mark one as read |
+| POST | `/notifications/read-all` | User | Mark all as read |
+| GET | `/notifications/stock-alerts` | User | Items I asked to be notified about |
+| POST | `/notifications/stock-alerts` | User | "Notify me" `{food_id}` for a sold-out / fully reserved item |
+| DELETE | `/notifications/stock-alerts/{food_id}` | User | Cancel "Notify me" |
 
 ### Example requests
 
@@ -202,11 +212,77 @@ Two read-only views are created automatically (PostgreSQL). In pgAdmin they're u
 |---|---|
 | `users_overview` | Every registered user and their login status: `is_logged_in`, `active_sessions`, `total_logins`, `last_login_at`, `last_seen_at` |
 | `logged_in_users` | Only the users logged in right now, one row per active login (device, IP, login time) |
+| `menu_overview` | Every food item with category, `food_type` (VEG / NON_VEG), price, cooking time, ingredients and stock |
 
 ```sql
 SELECT * FROM users_overview;
 SELECT * FROM logged_in_users;
+SELECT * FROM menu_overview;
 ```
+
+New columns on existing tables are added automatically on start (`app/database/migrations.py`),
+so the Neon database upgrades itself on the next deploy.
+
+## Food items: Veg / Non-Veg, ingredients, cooking time
+
+- Every food item has `food_type`: `VEG` or `NON_VEG` (also `is_veg: true/false`). The database
+  enforces it (NOT NULL + CHECK constraint), so an item can never be left unclassified.
+  Use it for the Veg / Non-Veg badge and the "Select item type" filter (`/menu?food_type=VEG`).
+- `ingredients` is a list of names only, e.g. `["Chicken", "Paratha", "Onion"]`. Quantities are not tracked.
+- `avg_cooking_time_minutes` is on every menu item and cart item. The cart returns
+  `estimated_ready_minutes`, and an order returns `estimated_ready_at` / `estimated_ready_minutes`.
+  Items are cooked in parallel, so the estimate is the slowest item's cooking time.
+
+## Scarce, high-demand items (e.g. 1 portion left, many buyers)
+
+Without protection, everyone sees the last portion as available, adds it to their cart,
+and all but one person fail at checkout. Instead:
+
+1. **Cart hold.** Adding an item, or changing its quantity, holds that stock for that
+   customer for `CART_HOLD_MINUTES` (default 10). Other customers can't add or order held
+   stock, and the holder is guaranteed to get it if they check out in time. Locking the
+   stock row (`SELECT … FOR UPDATE`) means two people can't both hold the last portion.
+2. **Fair-share limit.** At or below `LOW_STOCK_THRESHOLD` (default 5) portions, each customer
+   can hold at most `LOW_STOCK_MAX_PER_CUSTOMER` (default 2), so one person can't take all of it.
+3. **Advance notice on the menu.** Every item has `stock_status` + a ready-to-show `stock_message`:
+
+   | `stock_status` | Meaning | Suggested UI |
+   |---|---|---|
+   | `IN_STOCK` | Plenty left | normal |
+   | `LOW_STOCK` | Only a few left | yellow "Only a few left" tag |
+   | `HIGH_DEMAND` | Few left **and** others have it in their cart, or it's one of today's most ordered | orange "Selling fast" tag + message |
+   | `ALL_RESERVED` | Stock exists but it's all held in other carts; may free up | disable +1, show **Notify me** |
+   | `OUT_OF_STOCK` | Sold out | disable +1, show **Notify me** |
+
+   `max_order_quantity` is the most this customer can have now: disable "+1" at that number.
+   `popular` marks the most ordered items of the last 24 h. Exact stock counts are never sent to
+   customers, only to staff (`/staff/inventory`).
+4. **Cart warnings.** Each cart line has `reservation_active`, `reserved_until`, `available` and a
+   `message` such as "Held for you for 8 more min" or "Not enough left - reduce the quantity". When
+   `can_checkout` is false, disable Checkout and show the item messages.
+5. **Notifications.** `GET /notifications` (the app polls it) tells customers when:
+   - an item they tapped **Notify me** on is available again (`BACK_IN_STOCK`)
+   - an item in their cart sold out or not enough is left once their hold expired (`CART_ITEM_SOLD_OUT` / `CART_ITEM_LOW_STOCK`)
+   - their order was placed, with the estimated ready time (`ORDER_PLACED`)
+
+Settings (env vars): `CART_HOLD_MINUTES`, `LOW_STOCK_THRESHOLD`, `LOW_STOCK_MAX_PER_CUSTOMER`.
+
+### Frontend (Android) changes to make
+
+- **Menu card:** Veg/Non-Veg badge from `food_type` (green ● Veg / red ▲ Non-Veg); "⏱ ~N min" from
+  `avg_cooking_time_minutes`; a tag with `stock_message` when `stock_status` isn't `IN_STOCK`;
+  disable "+1" when `in cart >= max_order_quantity`; a **Notify me** button instead of "+1" when
+  `available` is false (`POST /notifications/stock-alerts`; the button shows as on when `notify_me` is true).
+  Send the token on `GET /menu` too, so the customer's own held items don't count as reserved.
+- **View details:** show `ingredients` as a list and `description`.
+- **Filters panel:** item type → `food_type`; category → `category_id`; price limit → `min_price` / `max_price`.
+- **Cart:** under each item show `message` (red when `available` is false); show "Ready in ~N min"
+  from `estimated_ready_minutes`; disable Checkout when `can_checkout` is false.
+- **On a 409** from add / +1 / checkout, show `detail`. It already explains why, e.g.
+  "Chicken Roll is running low: maximum 2 per customer".
+- **Notifications:** poll `GET /notifications?unread_only=true` every ~30 s and when the app comes
+  back to the foreground; show a bell badge from `unread_count` and a snackbar for new ones.
+- **Order placed screen:** show `estimated_ready_minutes` / `estimated_ready_at`.
 
 ## Business rules implemented
 
@@ -214,7 +290,9 @@ SELECT * FROM logged_in_users;
 - Self-registration creates STUDENT accounts; Institute ID and username must be unique, and Password must equal Confirm Password. Staff accounts are seeded or created by an admin.
 - Role-based access: a student token on `/staff/orders` returns **403 Forbidden**.
 - An item becomes unavailable automatically when its quantity reaches 0.
-- The cart and orders cannot exceed the available stock.
+- The cart and orders cannot exceed the available stock, and they can't use stock held in other customers' carts.
+- Low-stock items are limited per customer; customers see a stock status, never the exact count.
+- Every food item is either VEG or NON_VEG (enforced by the database).
 - Placing an order runs as one transaction: lock the cart, lock the inventory rows
   (`SELECT … FOR UPDATE`), check stock, create the order and its items, reduce
   inventory, then clear the cart.
@@ -225,4 +303,5 @@ SELECT * FROM logged_in_users;
 ## Not in Demo 1 (planned)
 
 Payment, pickup slots, the full order status flow (ACCEPTED → PREPARING → READY → COLLECTED),
-pickup verification, cancellation, notifications, feedback, reports, admin management.
+pickup verification, cancellation, push notifications (FCM; in-app notifications are done),
+feedback, reports, admin management.

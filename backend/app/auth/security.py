@@ -119,6 +119,16 @@ def get_current_user(session: UserSession = Depends(get_current_session)) -> Use
     return session.user
 
 
+def get_optional_user(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """Like get_current_user, but returns None for public endpoints called without a token."""
+    if credentials is None:
+        return None
+    return get_current_session(credentials, db).user
+
+
 def require_role(*roles: str) -> Callable[..., User]:
     """Dependency factory for role-based authorization, e.g. Depends(require_role("CANTEEN_STAFF"))."""
 

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import List
 
@@ -7,9 +7,26 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.database.models import ADMIN, CANTEEN_STAFF, ORDER_PLACED, Cart, Order, OrderItem, User
+from app.auth.security import utcnow
+from app.database.models import (
+    ADMIN,
+    CANTEEN_STAFF,
+    NOTIFY_ORDER_PLACED,
+    ORDER_PLACED,
+    Cart,
+    Notification,
+    Order,
+    OrderItem,
+    User,
+)
 from app.inventory import service as inventory_service
-from app.orders.schemas import OrderItemOut, OrderOut, OrderPlacedOut, OrderSummaryOut
+from app.orders.schemas import (
+    OrderOut,
+    OrderPlacedOut,
+    OrderSummaryOut,
+    estimated_ready_minutes,
+    order_item_out,
+)
 
 
 def to_order_out(order: Order) -> OrderOut:
@@ -18,16 +35,9 @@ def to_order_out(order: Order) -> OrderOut:
         status=order.status,
         total_amount=order.total_amount,
         created_at=order.created_at,
-        items=[
-            OrderItemOut(
-                food_id=oi.food_item_id,
-                food=oi.food_item.name,
-                quantity=oi.quantity,
-                price=oi.price,
-                subtotal=oi.price * oi.quantity,
-            )
-            for oi in order.items
-        ],
+        estimated_ready_at=order.estimated_ready_at,
+        estimated_ready_minutes=estimated_ready_minutes(order),
+        items=[order_item_out(oi) for oi in order.items],
     )
 
 
@@ -38,6 +48,7 @@ def to_summary(order: Order) -> OrderSummaryOut:
         total_amount=order.total_amount,
         item_count=sum(oi.quantity for oi in order.items),
         created_at=order.created_at,
+        estimated_ready_at=order.estimated_ready_at,
     )
 
 
@@ -49,8 +60,9 @@ def _make_order_code(order: Order) -> str:
 def place_order(db: Session, user: User) -> OrderPlacedOut:
     """Convert the user's cart into an order in a single transaction.
 
-    Steps: lock cart -> validate -> lock inventory rows -> check stock -> create order
-    and items -> reduce inventory -> clear cart -> commit.
+    Steps: lock cart -> validate -> lock inventory rows -> check stock (not counting
+    other customers' active cart holds) -> create order and items -> reduce inventory
+    -> clear cart -> notify -> commit.
     """
     # Locking the cart serialises concurrent/repeated "place order" requests from the
     # same user, so a double-tap cannot create two orders from one cart.
@@ -66,21 +78,33 @@ def place_order(db: Session, user: User) -> OrderPlacedOut:
     for ci in cart_items:
         food = ci.food_item
         inv = inventory_service.get_inventory(db, food.id, lock=True)
-        inventory_service.ensure_quantity_available(inv, ci.quantity, food.name)
+        inventory_service.ensure_quantity_available(db, inv, user.id, ci.quantity, food.name)
         inventory_service.set_quantity(inv, inv.quantity - ci.quantity)
         total += food.price * ci.quantity
         order_items.append(OrderItem(food_item_id=food.id, quantity=ci.quantity, price=food.price))
 
+    # Items are cooked in parallel, so the slowest one decides when the order is ready.
+    cooking_minutes = max(ci.food_item.avg_cooking_time_minutes for ci in cart_items)
+    now = utcnow()
     order = Order(
         order_id=f"TMP-{uuid.uuid4().hex}",
         user_id=user.id,
         total_amount=total,
         status=ORDER_PLACED,
+        created_at=now,
+        estimated_ready_at=now + timedelta(minutes=cooking_minutes),
         items=order_items,
     )
     db.add(order)
     db.flush()
     order.order_id = _make_order_code(order)
+    db.add(
+        Notification(
+            user_id=user.id,
+            type=NOTIFY_ORDER_PLACED,
+            message=f"Order {order.order_id} placed. It will be ready in about {cooking_minutes} min",
+        )
+    )
 
     cart.items.clear()
     db.commit()
