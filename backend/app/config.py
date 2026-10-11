@@ -18,3 +18,10 @@ JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))
 SEED_STAFF_INSTITUTE_ID = os.getenv("SEED_STAFF_INSTITUTE_ID", "STAFF001")
 SEED_STAFF_USERNAME = os.getenv("SEED_STAFF_USERNAME", "staff01")
 SEED_STAFF_PASSWORD = os.getenv("SEED_STAFF_PASSWORD", "Staff@123")
+
+# Stock rules
+# Adding/changing a cart item holds that stock for this long, so nobody else can take it.
+CART_HOLD_MINUTES = int(os.getenv("CART_HOLD_MINUTES", "10"))
+# At or below this stock an item is "low stock" and the per-customer limit applies.
+LOW_STOCK_THRESHOLD = int(os.getenv("LOW_STOCK_THRESHOLD", "5"))
+LOW_STOCK_MAX_PER_CUSTOMER = int(os.getenv("LOW_STOCK_MAX_PER_CUSTOMER", "2"))

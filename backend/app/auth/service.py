@@ -1,10 +1,18 @@
+from typing import Optional
+
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.schemas import LoginRequest, RegisterRequest, TokenResponse
-from app.auth.security import create_access_token, hash_password, verify_password
-from app.database.models import ACCOUNT_ACTIVE, STUDENT, Role, User
+from app.auth.security import (
+    create_access_token,
+    create_session,
+    hash_password,
+    utcnow,
+    verify_password,
+)
+from app.database.models import ACCOUNT_ACTIVE, STUDENT, Role, User, UserSession
 
 # Self-registered accounts are customers. Faculty/Staff/Admin roles are assigned by an admin.
 DEFAULT_ROLE = STUDENT
@@ -35,7 +43,9 @@ def register(db: Session, data: RegisterRequest) -> User:
     return user
 
 
-def login(db: Session, data: LoginRequest) -> TokenResponse:
+def login(
+    db: Session, data: LoginRequest, device: Optional[str] = None, ip_address: Optional[str] = None
+) -> TokenResponse:
     user = db.scalar(select(User).where(User.institute_id == data.institute_id.strip()))
     if user is None or not verify_password(data.password, user.password_hash):
         raise HTTPException(
@@ -44,10 +54,16 @@ def login(db: Session, data: LoginRequest) -> TokenResponse:
     if user.account_status != ACCOUNT_ACTIVE:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is not active")
 
+    session = create_session(db, user, device, ip_address)
     return TokenResponse(
-        access_token=create_access_token(user),
+        access_token=create_access_token(user, session),
         role=user.role.name,
         user_id=user.id,
         institute_id=user.institute_id,
         username=user.username,
     )
+
+
+def logout(db: Session, session: UserSession) -> None:
+    session.logged_out_at = utcnow()
+    db.commit()
