@@ -3,7 +3,9 @@ from decimal import Decimal
 from typing import List, Optional
 
 from sqlalchemy import (
+    JSON,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Integer,
@@ -31,6 +33,17 @@ ACCOUNT_INACTIVE = "INACTIVE"
 # Order status (only PLACED is used for Demo 1)
 ORDER_PLACED = "PLACED"
 
+# Every food item is either veg or non-veg.
+VEG = "VEG"
+NON_VEG = "NON_VEG"
+FOOD_TYPES = [VEG, NON_VEG]
+
+# Notification types
+NOTIFY_BACK_IN_STOCK = "BACK_IN_STOCK"
+NOTIFY_CART_ITEM_SOLD_OUT = "CART_ITEM_SOLD_OUT"
+NOTIFY_CART_ITEM_LOW_STOCK = "CART_ITEM_LOW_STOCK"
+NOTIFY_ORDER_PLACED = "ORDER_PLACED"
+
 
 class Role(Base):
     __tablename__ = "roles"
@@ -52,8 +65,30 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     role: Mapped[Role] = relationship(lazy="joined")
+    sessions: Mapped[List["UserSession"]] = relationship(back_populates="user")
     cart: Mapped[Optional["Cart"]] = relationship(back_populates="user", uselist=False)
     orders: Mapped[List["Order"]] = relationship(back_populates="user")
+
+
+class UserSession(Base):
+    """One row per login. The JWT carries the session_id (jti), so a session can be
+    listed as "logged in" and ended on logout."""
+
+    __tablename__ = "user_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    logged_out_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    device: Mapped[Optional[str]] = mapped_column(String(255))
+    ip_address: Mapped[Optional[str]] = mapped_column(String(64))
+
+    user: Mapped[User] = relationship(back_populates="sessions", lazy="joined")
 
 
 class Category(Base):
@@ -67,12 +102,19 @@ class Category(Base):
 
 class FoodItem(Base):
     __tablename__ = "food_items"
+    __table_args__ = (
+        CheckConstraint("food_type IN ('VEG', 'NON_VEG')", name="ck_food_items_food_type"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     description: Mapped[Optional[str]] = mapped_column(Text)
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), nullable=False)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    food_type: Mapped[str] = mapped_column(String(10), nullable=False, server_default=VEG, index=True)
+    # Ingredient names only, e.g. ["Rice", "Onion"]; quantities are not tracked.
+    ingredients: Mapped[Optional[List[str]]] = mapped_column(JSON)
+    avg_cooking_time_minutes: Mapped[int] = mapped_column(Integer, nullable=False, server_default="10")
 
     category: Mapped[Category] = relationship(back_populates="food_items", lazy="joined")
     inventory: Mapped[Optional["Inventory"]] = relationship(
@@ -116,6 +158,8 @@ class CartItem(Base):
     cart_id: Mapped[int] = mapped_column(ForeignKey("carts.id", ondelete="CASCADE"), nullable=False)
     food_item_id: Mapped[int] = mapped_column(ForeignKey("food_items.id"), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Stock is held for this cart line until this time; other customers can't take it.
+    reserved_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     cart: Mapped[Cart] = relationship(back_populates="items")
     food_item: Mapped[FoodItem] = relationship(lazy="joined")
@@ -131,6 +175,8 @@ class Order(Base):
     total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default=ORDER_PLACED, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Based on the slowest item's average cooking time.
+    estimated_ready_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     user: Mapped[User] = relationship(back_populates="orders", lazy="joined")
     items: Mapped[List["OrderItem"]] = relationship(
@@ -150,3 +196,37 @@ class OrderItem(Base):
 
     order: Mapped[Order] = relationship(back_populates="items")
     food_item: Mapped[FoodItem] = relationship(lazy="joined")
+
+
+class StockAlert(Base):
+    """A customer asked to be notified when a sold-out / fully reserved item frees up."""
+
+    __tablename__ = "stock_alerts"
+    __table_args__ = (UniqueConstraint("user_id", "food_item_id", name="uq_stock_alert"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    food_item_id: Mapped[int] = mapped_column(
+        ForeignKey("food_items.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    food_item: Mapped[FoodItem] = relationship(lazy="joined")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    food_item_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("food_items.id", ondelete="CASCADE")
+    )
+    type: Mapped[str] = mapped_column(String(30), nullable=False)
+    message: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    read_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

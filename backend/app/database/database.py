@@ -24,7 +24,11 @@ def get_db():
 
 
 def init_db():
-    """Create all tables that don't exist yet."""
+    """Create missing tables and columns, then (re)create the browsing views."""
     from app.database import models  # noqa: F401  (registers models on Base)
+    from app.database.migrations import add_missing_columns
+    from app.database.views import create_views
 
     Base.metadata.create_all(bind=engine)
+    add_missing_columns(engine)
+    create_views(engine)

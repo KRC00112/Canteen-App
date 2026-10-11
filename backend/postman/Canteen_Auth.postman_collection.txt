@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Canteen Backend - All APIs",
-    "description": "All Demo 1 APIs. Run folders in order (1 -> 11): login requests save tokens, cart/order requests save cart_item_id and order_id automatically.",
+    "description": "All Demo 1 APIs. Run folders in order (1 -> 13): login requests save tokens, cart/order requests save cart_item_id and order_id automatically.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -927,7 +927,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Menu -> 200\", () => pm.response.to.have.status(200));"
+                  "pm.test(\"Menu -> 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"items have food_type, ingredients, cooking time, stock status\", () => { const i = pm.response.json()[0]; [\"food_type\",\"is_veg\",\"ingredients\",\"avg_cooking_time_minutes\",\"stock_status\",\"stock_message\",\"max_order_quantity\"].forEach(k => pm.expect(i).to.have.property(k)); });"
                 ]
               }
             }
@@ -1039,6 +1040,86 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Available only -> 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Non-Veg only",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/menu?food_type=NON_VEG",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "menu"
+              ],
+              "query": [
+                {
+                  "key": "food_type",
+                  "value": "NON_VEG"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Non-Veg filter -> 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"all NON_VEG\", () => pm.response.json().forEach(i => pm.expect(i.food_type).to.eql(\"NON_VEG\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Price range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/menu?min_price=20&max_price=60",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "menu"
+              ],
+              "query": [
+                {
+                  "key": "min_price",
+                  "value": "20"
+                },
+                {
+                  "key": "max_price",
+                  "value": "60"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Price filter -> 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"prices in range\", () => pm.response.json().forEach(i => { pm.expect(i.price).to.be.within(20, 60); }));"
                 ]
               }
             }
@@ -1172,7 +1253,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Inventory -> 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"has quantity + available\", () => { const j = pm.response.json(); pm.expect(j).to.have.property(\"quantity\"); pm.expect(j).to.have.property(\"available\"); });"
+                  "pm.test(\"has stock status, no exact count\", () => { const j = pm.response.json(); pm.expect(j).to.have.property(\"stock_status\"); pm.expect(j).to.have.property(\"available\"); pm.expect(j).to.not.have.property(\"quantity\"); });"
                 ]
               }
             }
@@ -1271,7 +1352,8 @@
                   "pm.test(\"Added -> 201\", () => pm.response.to.have.status(201));",
                   "const j = pm.response.json();",
                   "pm.collectionVariables.set(\"cart_item_id\", j.items[0].item_id);",
-                  "pm.test(\"total calculated\", () => pm.expect(j.total).to.be.above(0));"
+                  "pm.test(\"total calculated\", () => pm.expect(j.total).to.be.above(0));",
+                  "pm.test(\"stock held in cart\", () => pm.expect(j.items[0].reservation_active).to.eql(true));"
                 ]
               }
             }
@@ -1523,7 +1605,8 @@
                   "pm.test(\"Order placed -> 201\", () => pm.response.to.have.status(201));",
                   "const j = pm.response.json();",
                   "pm.collectionVariables.set(\"order_id\", j.order_id);",
-                  "pm.test(\"order id generated\", () => pm.expect(j.order_id).to.match(/^ORD-/));"
+                  "pm.test(\"order id generated\", () => pm.expect(j.order_id).to.match(/^ORD-/));",
+                  "pm.test(\"estimated ready time\", () => pm.expect(j.estimated_ready_minutes).to.be.above(0));"
                 ]
               }
             }
@@ -1943,6 +2026,565 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Cleared -> 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "12. Stock, staff inventory & notifications",
+      "item": [
+        {
+          "name": "Staff inventory (exact stock)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/staff/inventory",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "staff",
+                "inventory"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staff_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Staff inventory -> 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"has held_in_carts\", () => pm.expect(pm.response.json()[0]).to.have.property(\"held_in_carts\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Student -> staff inventory (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/staff/inventory",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "staff",
+                "inventory"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{student_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student staff inventory -> 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Staff restock Chicken Roll",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/staff/inventory/3",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "staff",
+                "inventory",
+                "3"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staff_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 20\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Restock -> 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Staff edit food item (cooking time, type, ingredients)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/staff/menu/3",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "staff",
+                "menu",
+                "3"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staff_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"food_type\": \"NON_VEG\",\n  \"avg_cooking_time_minutes\": 12,\n  \"ingredients\": [\n    \"Chicken\",\n    \"Paratha\",\n    \"Onion\",\n    \"Capsicum\",\n    \"Spices\"\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Edit food item -> 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid food type (422)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/staff/menu/3",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "staff",
+                "menu",
+                "3"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staff_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"food_type\": \"EGG\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Invalid food type -> 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notify me on an available item (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/notifications/stock-alerts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications",
+                "stock-alerts"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{student_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"food_id\": 3\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Notify me on available item -> 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My stock alerts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications/stock-alerts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications",
+                "stock-alerts"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{student_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Stock alerts -> 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{student_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Notifications -> 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"has unread_count\", () => pm.expect(pm.response.json()).to.have.property(\"unread_count\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark all notifications read",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications/read-all",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications",
+                "read-all"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{student_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Read all -> 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"unread_count is 0\", () => pm.expect(pm.response.json().unread_count).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "13. Logged-in users & logout",
+      "item": [
+        {
+          "name": "All logged-in users (staff token)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/logged-in",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "logged-in"
+              ]
+            },
+            "description": "Every user currently logged in, with each login session (device, IP, login time, last seen).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staff_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Logged-in users -> 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"has totals\", () => pm.expect(pm.response.json()).to.have.property(\"total_logged_in_users\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logged-in users (student token)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/logged-in",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "logged-in"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{student_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student forbidden -> 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout student",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Ends this session. The token stops working immediately.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{student_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Logged out -> 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Use token after logout",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{student_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Logged-out token rejected -> 401\", () => pm.response.to.have.status(401));"
                 ]
               }
             }

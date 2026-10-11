@@ -15,6 +15,8 @@ from app.database.models import (
     ACCOUNT_ACTIVE,
     ALL_ROLES,
     CANTEEN_STAFF,
+    NON_VEG,
+    VEG,
     Category,
     FoodItem,
     Inventory,
@@ -22,14 +24,20 @@ from app.database.models import (
     User,
 )
 
-# (name, description, category, price, quantity)
+# (name, description, category, price, quantity, food type, ingredients, avg cooking minutes)
 MENU = [
-    ("Veg Biryani", "Fragrant basmati rice cooked with vegetables and spices", "Meals", "80", 25),
-    ("Masala Dosa", "Crispy dosa with potato masala, chutney and sambar", "South Indian", "50", 30),
-    ("Chicken Roll", "Spiced chicken wrapped in a paratha", "Snacks", "70", 20),
-    ("Samosa", "Crispy pastry filled with spiced potatoes", "Snacks", "20", 50),
-    ("Tea", "Hot masala chai", "Beverages", "15", 100),
-    ("Coffee", "Hot filter coffee", "Beverages", "25", 50),
+    ("Veg Biryani", "Fragrant basmati rice cooked with vegetables and spices", "Meals", "80", 25,
+     VEG, ["Basmati rice", "Mixed vegetables", "Onion", "Curd", "Biryani spices"], 20),
+    ("Masala Dosa", "Crispy dosa with potato masala, chutney and sambar", "South Indian", "50", 30,
+     VEG, ["Rice batter", "Urad dal", "Potato", "Onion", "Coconut chutney", "Sambar"], 10),
+    ("Chicken Roll", "Spiced chicken wrapped in a paratha", "Snacks", "70", 20,
+     NON_VEG, ["Chicken", "Paratha", "Onion", "Capsicum", "Spices"], 12),
+    ("Samosa", "Crispy pastry filled with spiced potatoes", "Snacks", "20", 50,
+     VEG, ["Flour", "Potato", "Green peas", "Spices"], 5),
+    ("Tea", "Hot masala chai", "Beverages", "15", 100,
+     VEG, ["Tea leaves", "Milk", "Sugar", "Ginger", "Cardamom"], 3),
+    ("Coffee", "Hot filter coffee", "Beverages", "25", 50,
+     VEG, ["Coffee decoction", "Milk", "Sugar"], 3),
 ]
 
 
@@ -60,14 +68,28 @@ def seed():
             },
         )
 
-        for name, description, category, price, quantity in MENU:
+        for name, description, category, price, quantity, food_type, ingredients, cook_minutes in MENU:
             cat = get_or_create(db, Category, name=category)
+            details = {
+                "food_type": food_type,
+                "ingredients": ingredients,
+                "avg_cooking_time_minutes": cook_minutes,
+            }
             food = get_or_create(
                 db,
                 FoodItem,
                 name=name,
-                defaults={"description": description, "category_id": cat.id, "price": Decimal(price)},
+                defaults={
+                    "description": description,
+                    "category_id": cat.id,
+                    "price": Decimal(price),
+                    **details,
+                },
             )
+            # Items created before these columns existed have no ingredients yet: fill them in once.
+            if food.ingredients is None:
+                for field, value in details.items():
+                    setattr(food, field, value)
             get_or_create(
                 db,
                 Inventory,
