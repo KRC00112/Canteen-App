@@ -73,8 +73,7 @@ const styles = StyleSheet.create({
     fontWeight:500
   },
   defaultView:{
-    position:'relative',
-    padding:'5%',
+    padding:20,
     flex: 1,
     gap:10
   },

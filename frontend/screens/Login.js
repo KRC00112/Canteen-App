@@ -13,7 +13,7 @@ export default function Login(){
     const [password, setPassword]=useState("");
     
 
-    async function getData(){
+    async function sendData(){
     try{
         const response = await fetch(`https://canteen-backend-xzko.onrender.com/auth/login`,{
             method: 'POST',
@@ -72,7 +72,7 @@ export default function Login(){
                         onChangeText={value=>setPassword(value)}
                     />
                 </View>
-                <Pressable style={[styles.button, styles.formInputComponent]} onPress={getData}>
+                <Pressable style={[styles.button, styles.formInputComponent]} onPress={()=>navigation.navigate('Home')}>{/*replace braces values of onpress with sendData*/}
                     <Text style={styles.buttonText}>LOG IN!</Text>
                 </Pressable>
                 <Text style={styles.accountAvailabilityMessage}>

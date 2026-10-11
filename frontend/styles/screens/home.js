@@ -77,6 +77,12 @@ const home = StyleSheet.create({
     flex:1,
     padding:'2%',
   },
+  cardCountDisplays:{
+
+
+
+
+  },
   cardCountDisplay:{
     backgroundColor:'white',
       borderColor: 'black',
@@ -85,17 +91,18 @@ const home = StyleSheet.create({
       borderRadius:2,
       width:'fit-content',
       paddingInline:'3%',
+      boxShadow: '1px 2px rgba(0, 0, 0)',
       position:'absolute',
-      zIndex:2,
       right:10,
       top:10,
-      boxShadow: '1px 2px rgba(0, 0, 0)',
+      zIndex:2,
 
   },
   itemOverview:{
     marginTop:5,
     position:'absolute',
     // borderWidth:2,
+    
     width:'70%',
     height:'80%',
     zIndex:2,
@@ -129,14 +136,29 @@ const home = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
 },
+filterFormOverlay:{
 
+  position:'absolute',
+  backgroundColor: 'rgba(158, 157, 157, 0.5)',
+  zIndex:1,
+  top:0,
+  bottom:0,
+  right:0,
+  left:0,
+  display:'flex',
+  justifyContent:'center',
+  alignItems:'center',
+
+
+},
 filterForm:{
-  backgroundColor:'red',
+  backgroundColor:'white',
   padding:'5%',
   borderWidth:3,
   display:'flex',
   flexDirection:'column',
-  gap:8
+  gap:8,
+  
   
 },
 
@@ -163,7 +185,9 @@ goToCartBtn:{
       boxShadow: '4px 5px rgba(0, 0, 0)',
       outlineStyle: 'none',
 
-}
+},
+
+
 });
 
 export default home;

@@ -11,8 +11,8 @@ function CartItemCard({ item, count, addingItemsToCart, removingItemsFromCart })
             <View style={cart.itemOverview}>
                 <Text style={cart.itemName}>{item.name}</Text>
                 <Text style={cart.itemPrice}>₹ {item.price}</Text>
-                <View style={[cart.veg, { borderColor: item.type==="veg"?"green":"red" }]}>
-                    <Text style={{ color: item.type==="veg"?"green":"red", fontWeight: "bold" }}>{item.type==="veg"?"● Veg":"▲ Non-Veg"}</Text>
+                <View style={[cart.veg, { borderColor: item.food_type==="VEG"?"green":"red" }]}>
+                    <Text style={{ color: item.food_type==="VEG"?"green":"red", fontWeight: "bold" }}>{item.food_type==="VEG"?"● Veg":"▲ Non-Veg"}</Text>
                 </View>
             </View>
 
@@ -43,7 +43,7 @@ function CartItemCard({ item, count, addingItemsToCart, removingItemsFromCart })
 
 export default function Cart({route}) {
     const navigation=useNavigation();
-    let canteenFoodList=route.params.canteenFoodList;
+    let foodList=route.params.foodList;
     const [cartItems, setCartItems]=useState(route.params.cartItems); //this holds the food id and count unlike itemsInCart that fetches all the other details about the food from the id
 
     function addingItemsToCart(id) {
@@ -55,7 +55,7 @@ export default function Cart({route}) {
     }
 
     const itemsInCart=cartItems.map(cartItem => {
-        const foodItem=canteenFoodList.find(item => item.id === cartItem.id);
+        const foodItem=foodList.find(item => item.id === cartItem.id);
         return foodItem?{ ...foodItem, count: cartItem.count }:null;
     });
 
