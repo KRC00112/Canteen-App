@@ -136,7 +136,7 @@ const home = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
 },
-filterFormOverlay:{
+overlay:{
 
   position:'absolute',
   backgroundColor: 'rgba(158, 157, 157, 0.5)',
@@ -151,7 +151,7 @@ filterFormOverlay:{
 
 
 },
-filterForm:{
+popupForm:{
   backgroundColor:'white',
   padding:'5%',
   borderWidth:3,
@@ -166,7 +166,8 @@ itemsGrouping:{
   display:'flex',
   flexDirection:'row',
   display:'flex',
-  flexWrap:'wrap'
+  flexWrap:'wrap',
+  gap:2,
 
 },
 filterPrefBtn:{
@@ -186,6 +187,19 @@ goToCartBtn:{
       outlineStyle: 'none',
 
 },
+detailsCard: {
+  width: '85%',
+  gap: 10,
+},
+detailsTitle: {
+  fontWeight: '900',
+  fontSize: 24,
+},
+detailsPrice: {
+  fontSize: 20,
+  fontWeight: 'bold',
+},
+
 
 
 });

@@ -27,7 +27,7 @@ export default function Login(){
         )
 
         });
-        // const data=await response.json();
+        const data=await response.json();
         if(!response.ok){
             Alert.alert('Login Failed', "something went wrong");
             console.log(response)
@@ -38,7 +38,7 @@ export default function Login(){
             'Success', 'Logged In Successfully!', [
                 {
                     text: 'Go to Home',
-                    onPress:()=>navigation.navigate('Home')
+                    onPress:()=>navigation.popTo('Home',{userData: data})
                 }
             ]
         );
@@ -72,7 +72,7 @@ export default function Login(){
                         onChangeText={value=>setPassword(value)}
                     />
                 </View>
-                <Pressable style={[styles.button, styles.formInputComponent]} onPress={()=>navigation.navigate('Home')}>{/*replace braces values of onpress with sendData*/}
+                <Pressable style={[styles.button, styles.formInputComponent]} onPress={sendData}>{/*replace braces values of onpress with sendData*/}
                     <Text style={styles.buttonText}>LOG IN!</Text>
                 </Pressable>
                 <Text style={styles.accountAvailabilityMessage}>

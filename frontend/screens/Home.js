@@ -7,6 +7,8 @@ import home from "../styles/screens/home";
 import canteenFoodList from "../canteenFoodList";
 import { useState, useEffect } from "react";
 import { ScrollView } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
+
 
 
 
@@ -46,7 +48,8 @@ function ItemListCard({item, addingItemsToCart, removingItemsFromCart, cartItems
             />
             <View style={home.cardButtonsView}>
                 <Pressable style={[home.cardButton, {backgroundColor:'#7DF9FF'}]} onPress={()=>{handleDetailsCardVisibility();handleItemSelect(item)}}>
-                    <Text style={{color:'black'}}>View details  🛈 </Text>
+                    <Ionicons name="information-circle-outline" size={21} color="black" />
+                    <Text style={{ color: 'black' }}>View details </Text>
                 </Pressable>
                 
                 <Pressable onPress={()=>{addingItemsToCart(item.id)}} style={[home.cardCountBtn, {backgroundColor:'#2FFF2F'}]}>
@@ -63,23 +66,88 @@ function ItemListCard({item, addingItemsToCart, removingItemsFromCart, cartItems
 }
 
 
-function MoreDetailsCard({selectedItem}){
-    return(
-        <View>
-            <Text>More Details: {JSON.stringify(selectedItem)}</Text>
+function MoreDetailsCard({ selectedItem, handleDetailsCardVisibility,addingItemsToCart, removingItemsFromCart }) {
+    if (!selectedItem) return null;
+
+    const {name, description, ingredients, avg_cooking_time_minutes, stock_status, stock_message, popular, food_type,price} = selectedItem;
+
+    return (
+        <View style={home.overlay}>
+            <Pressable
+                style={StyleSheet.absoluteFill}
+                onPress={handleDetailsCardVisibility}
+            />
+            <View style={[home.popupForm, home.detailsCard]}>
+                <Text style={home.detailsTitle}>{name}</Text>
+                <Text style={home.detailsPrice}>₹ {price}</Text>
+
+                {popular && (
+                    <View style={home.filterPrefBtn}>
+                        <Text style={{ fontWeight: 'bold' }}>★ Popular</Text>
+                    </View>
+                )}
+
+                {description && <Text>{description}</Text>}
+
+                 <View style={[home.veg, { borderColor: food_type==="VEG" ? 'green' : 'red' }]}>
+                    <Text style={{ color: food_type==="VEG" ? 'green' : 'red', fontWeight: 'bold' }}>
+                        {food_type==="VEG" ? '● Veg' : '▲ Non-Veg'}
+                    </Text>
+                </View> 
+
+                {ingredients?.length > 0 && (
+                    <View>
+                        <Text style={{ fontWeight: 'bold' }}>Ingredients:</Text>
+                        <View style={home.itemsGrouping}>
+                            {ingredients.map(ing => (
+                                <View key={ing} style={home.filterPrefBtn}>
+                                    <Text>{ing}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                )}
+
+                <Text>
+                    <Text style={{ fontWeight: 'bold' }}>Estimated cooking time: </Text>
+                    ~{avg_cooking_time_minutes} min
+                </Text>
+
+                {stock_status !== "IN_STOCK" && (
+                    <Text style={{ color: 'red', fontWeight: 'bold' }}>
+                        {stock_message}
+                    </Text>
+                )}
+                <View style={[home.cardButtonsView,{borderTopWidth:0, gap:7}]}>
+                    <Pressable
+                        onPress={() => addingItemsToCart(selectedItem.id)}
+                        style={[home.cardCountBtn, { backgroundColor: '#2FFF2F', borderWidth: 2 ,boxShadow: '4px 5px rgba(0, 0, 0)',}]}
+                    >
+                        <Text style={{ color: 'black' }}>+1</Text>
+                    </Pressable>
+
+                    <Pressable
+                        onPress={() => removingItemsFromCart(selectedItem.id)}
+                        style={[home.cardCountBtn, { backgroundColor: '#FF4911', borderWidth: 2, boxShadow: '4px 5px rgba(0, 0, 0)',  }]}
+                    >
+                        <Text style={{ color: 'black' }}>-1</Text>
+                    </Pressable>
+                </View>
+
+            </View>
         </View>
-    )
+    );
 }
 
 function FilterForm({categories, handleCategorySelection, selectedCategories, handleItemTypeSelection, itemType, itemPriceLimits, handleMinPriceSelection, handleMaxPriceSelection,handleFilterFormVisibility}){
 
     return(
-        <View style={home.filterFormOverlay} >
+        <View style={home.overlay} >
             <Pressable
                 style={StyleSheet.absoluteFill}
                 onPress={handleFilterFormVisibility}
             />
-            <View style={home.filterForm}>
+            <View style={home.popupForm}>
                 <Text style={{fontWeight:'bold'}}>Preferences</Text>
                 <View>
                     <Text style={{fontWeight:'bold'}}>Select item type: </Text>
@@ -132,7 +200,10 @@ export default function Home({route}){
         max: 1000
     })
     const [cartItems, setCartItems]=useState([]);
+    const loggedInUserData = route.params.userData
+    
     const navigation = useNavigation();
+    
 
     useEffect(()=>{
         async function getFoodList(){
@@ -242,10 +313,15 @@ export default function Home({route}){
                     handleMaxPriceSelection={handleMaxPriceSelection}
                     handleFilterFormVisibility={handleFilterFormVisibility}
                 />}
-                {showMoreDetailsCard && <MoreDetailsCard selectedItem={selectedItem}/>}
+                {showMoreDetailsCard && <MoreDetailsCard 
+                    selectedItem={selectedItem} 
+                    handleDetailsCardVisibility={handleDetailsCardVisibility}
+                    addingItemsToCart={addingItemsToCart}
+                    removingItemsFromCart={removingItemsFromCart}
+                />}
                 <View style={home.nonScrollable}> 
                     <View style={styles.appBar}>
-                        <Text>Welcome John Doe!</Text>
+                        <Text>Welcome {loggedInUserData?.username}!</Text>
                         <Pressable style={home.goToCartBtn} onPress={()=>navigation.navigate('Cart', {cartItems: cartItems, foodList: foodList})}><Text>Cart</Text></Pressable>
                     </View>
                     <View style={home.searchAndFilter}>

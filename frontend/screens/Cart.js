@@ -4,7 +4,7 @@ import { useNavigation} from "@react-navigation/native";
 import { useState} from "react";
 import styles from "../styles";
 import cart from "../styles/screens/cart";
-import { AddItemContext } from "../contexts/AddItemContext";
+
 function CartItemCard({ item, count, addingItemsToCart, removingItemsFromCart }) {
     return (
         <View style={cart.itemListCard}>
@@ -67,14 +67,14 @@ export default function Cart({route}) {
             <View style={styles.defaultView}>
                 <View style={styles.appBar}>
                     <Text style={cart.headerText}>Your Cart</Text>
-                    <Pressable style={cart.backBtn} onPress={() => navigation.navigate('Home', {result:cartItems})}><Text>Back</Text></Pressable>
+                    <Pressable style={cart.backBtn} onPress={() => navigation.popTo('Home', {result: cartItems}, {merge: true})}><Text>Back</Text></Pressable>
                 </View>
 
                 <ScrollView style={cart.itemsList} contentContainerStyle={cart.itemsListContent}>
                     {itemsInCart.length === 0 ? (
                         <View style={cart.emptyCart}>
                             <Text style={cart.emptyCartText}>Your cart is empty!</Text>
-                            <Pressable style={cart.shopBtn} onPress={()=>navigation.navigate('Home', {result:cartItems})}><Text>Go back to menu</Text></Pressable>
+                            <Pressable style={cart.shopBtn} onPress={()=>navigation.popTo('Home', {result: cartItems}, {merge: true})}><Text>Go back to menu</Text></Pressable>
                         </View>
                     ) : (
                         itemsInCart.map(item => <CartItemCard key={item.id} item={item} count={item.count} addingItemsToCart={addingItemsToCart} removingItemsFromCart={removingItemsFromCart} />)
