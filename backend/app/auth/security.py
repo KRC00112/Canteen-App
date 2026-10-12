@@ -8,11 +8,12 @@ from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.config import JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
+from app.config import GUEST_ACCESS, GUEST_INSTITUTE_ID, JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
 from app.database.database import get_db
-from app.database.models import ACCOUNT_ACTIVE, User, UserSession
+from app.database.models import ACCOUNT_ACTIVE, STUDENT, Role, User, UserSession
 
 _hasher = PasswordHasher()
 _bearer = HTTPBearer(auto_error=False)
@@ -127,6 +128,50 @@ def get_optional_user(
     if credentials is None:
         return None
     return get_current_session(credentials, db).user
+
+
+def get_or_create_guest(db: Session) -> User:
+    """The shared guest account used by requests without a token (see GUEST_ACCESS)."""
+    guest = db.scalar(select(User).where(User.institute_id == GUEST_INSTITUTE_ID))
+    if guest is not None:
+        return guest
+    role = db.scalar(select(Role).where(Role.name == STUDENT))
+    guest = User(
+        institute_id=GUEST_INSTITUTE_ID,
+        username=GUEST_INSTITUTE_ID.lower(),
+        # Random password: nobody can log in as the guest.
+        password_hash=hash_password(uuid.uuid4().hex),
+        role_id=role.id,
+        account_status=ACCOUNT_ACTIVE,
+    )
+    db.add(guest)
+    try:
+        db.commit()
+    except IntegrityError:  # created by a concurrent request
+        db.rollback()
+        guest = db.scalar(select(User).where(User.institute_id == GUEST_INSTITUTE_ID))
+    return guest
+
+
+def get_customer(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
+    db: Session = Depends(get_db),
+) -> User:
+    """Customer endpoints: the logged-in user, or the shared guest when no token is sent
+    and GUEST_ACCESS is on. An invalid or expired token is still rejected with 401."""
+    if credentials is None and GUEST_ACCESS:
+        return get_or_create_guest(db)
+    return get_current_session(credentials, db).user
+
+
+def get_optional_customer(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """Public endpoints (menu): like get_customer, but None when guest access is off."""
+    if credentials is None and not GUEST_ACCESS:
+        return None
+    return get_customer(credentials, db)
 
 
 def require_role(*roles: str) -> Callable[..., User]:

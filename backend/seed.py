@@ -8,7 +8,7 @@ from decimal import Decimal
 
 from sqlalchemy import select
 
-from app.auth.security import hash_password
+from app.auth.security import get_or_create_guest, hash_password
 from app.config import SEED_STAFF_INSTITUTE_ID, SEED_STAFF_PASSWORD, SEED_STAFF_USERNAME
 from app.database.database import SessionLocal, init_db
 from app.database.models import (
@@ -98,6 +98,7 @@ def seed():
             )
 
         db.commit()
+        get_or_create_guest(db)
         print("Seed complete.")
         print(f"  Staff login: Institute ID {SEED_STAFF_INSTITUTE_ID} / {SEED_STAFF_PASSWORD}")
     finally:

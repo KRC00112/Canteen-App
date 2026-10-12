@@ -133,6 +133,7 @@ docker compose up --build
 |---|---|
 | Roles | STUDENT, FACULTY, CANTEEN_STAFF, ADMIN |
 | Staff account | Institute ID `STAFF001` / `Staff@123` (no self-registration for staff) |
+| Guest account | Institute ID `GUEST001`, used by customer requests without a token (no login) |
 | Menu | Veg Biryani ₹80 (25), Masala Dosa ₹50 (30), Chicken Roll ₹70 (20, **Non-Veg**), Samosa ₹20 (50), Tea ₹15 (100), Coffee ₹25 (50). All others are Veg; each has ingredients and an average cooking time |
 
 Anyone can register with a new Institute ID; the account is created with the STUDENT role.
@@ -148,7 +149,20 @@ To make someone FACULTY / CANTEEN_STAFF / ADMIN, change their `role_id` in the `
 
 In Swagger, click **Authorize** and paste the token.
 
+### Testing without a token (guest mode)
+
+While `GUEST_ACCESS=true` (the default), the customer endpoints (cart, orders,
+notifications, plus the menu's stock view) also work **without** a token. They then use one
+shared guest account, `GUEST001`, which is created automatically. Nobody can log in as it.
+Everyone testing without a token shares the same guest cart and orders.
+Sending a token still uses that user, and an invalid or expired token still returns 401.
+Staff endpoints always need a staff token.
+
+Set `GUEST_ACCESS=false` (Render → Environment) once the app sends tokens, so customers must log in.
+
 ## API endpoints
+
+**Customer** = token optional: without one, the shared guest account is used (see *Testing without a token*).
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
@@ -163,24 +177,24 @@ In Swagger, click **Authorize** and paste the token.
 | GET | `/menu/categories` | – | Categories, each with the food types it contains |
 | GET | `/menu/{food_id}` | – (token optional) | One food item |
 | GET | `/inventory/{food_id}` | – (token optional) | Availability + stock status (no exact count) |
-| GET | `/cart` | User | Cart with subtotal/total |
-| POST | `/cart/items` | User | Add item `{food_id, quantity}` |
-| PUT | `/cart/items/{item_id}` | User | Change quantity `{quantity}` |
-| DELETE | `/cart/items/{item_id}` | User | Remove item |
-| DELETE | `/cart` | User | Clear cart |
-| POST | `/orders` | User | Place an order from the cart |
-| GET | `/orders` | User | My order history |
-| GET | `/orders/{order_id}` | User | Order details (e.g. `ORD-20261010-0001`) |
+| GET | `/cart` | Customer | Cart with subtotal/total |
+| POST | `/cart/items` | Customer | Add item `{food_id, quantity}` |
+| PUT | `/cart/items/{item_id}` | Customer | Change quantity `{quantity}` |
+| DELETE | `/cart/items/{item_id}` | Customer | Remove item |
+| DELETE | `/cart` | Customer | Clear cart |
+| POST | `/orders` | Customer | Place an order from the cart |
+| GET | `/orders` | Customer | My order history |
+| GET | `/orders/{order_id}` | Customer | Order details (e.g. `ORD-20261010-0001`) |
 | GET | `/staff/orders` | CANTEEN_STAFF / ADMIN | Incoming orders (`?status=PLACED`) |
 | GET | `/staff/inventory` | CANTEEN_STAFF / ADMIN | Exact stock, units held in carts, units ordered in the last 24 h |
 | PUT | `/staff/inventory/{food_id}` | CANTEEN_STAFF / ADMIN | Set stock `{quantity, available?}` (restock) |
 | PATCH | `/staff/menu/{food_id}` | CANTEEN_STAFF / ADMIN | Edit `food_type`, `ingredients`, `avg_cooking_time_minutes`, `price`, `description` |
-| GET | `/notifications` | User | My notifications + `unread_count` (`?unread_only=true`) |
-| POST | `/notifications/{id}/read` | User | Mark one as read |
-| POST | `/notifications/read-all` | User | Mark all as read |
-| GET | `/notifications/stock-alerts` | User | Items I asked to be notified about |
-| POST | `/notifications/stock-alerts` | User | "Notify me" `{food_id}` for a sold-out / fully reserved item |
-| DELETE | `/notifications/stock-alerts/{food_id}` | User | Cancel "Notify me" |
+| GET | `/notifications` | Customer | My notifications + `unread_count` (`?unread_only=true`) |
+| POST | `/notifications/{id}/read` | Customer | Mark one as read |
+| POST | `/notifications/read-all` | Customer | Mark all as read |
+| GET | `/notifications/stock-alerts` | Customer | Items I asked to be notified about |
+| POST | `/notifications/stock-alerts` | Customer | "Notify me" `{food_id}` for a sold-out / fully reserved item |
+| DELETE | `/notifications/stock-alerts/{food_id}` | Customer | Cancel "Notify me" |
 
 ### Example requests
 

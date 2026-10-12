@@ -1262,7 +1262,7 @@
       ]
     },
     {
-      "name": "8. Cart (student token)",
+      "name": "8. Cart (student token; works without a token as guest)",
       "item": [
         {
           "name": "View cart",
@@ -1520,7 +1520,7 @@
           ]
         },
         {
-          "name": "Add item without login (401)",
+          "name": "Add item without login (guest cart, 201)",
           "request": {
             "method": "POST",
             "header": [
@@ -1539,7 +1539,7 @@
                 "items"
               ]
             },
-            "description": "",
+            "description": "No token: the shared guest account GUEST001 is used (GUEST_ACCESS=true).",
             "auth": {
               "type": "noauth"
             },
@@ -1559,7 +1559,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Login required -> 401\", () => pm.response.to.have.status(401));"
+                  "pm.test(\"Guest cart -> 201\", () => pm.response.to.have.status(201));"
                 ]
               }
             }

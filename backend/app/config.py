@@ -19,6 +19,11 @@ SEED_STAFF_INSTITUTE_ID = os.getenv("SEED_STAFF_INSTITUTE_ID", "STAFF001")
 SEED_STAFF_USERNAME = os.getenv("SEED_STAFF_USERNAME", "staff01")
 SEED_STAFF_PASSWORD = os.getenv("SEED_STAFF_PASSWORD", "Staff@123")
 
+# Testing mode: customer endpoints (cart, orders, notifications) work without a token by
+# using one shared guest account. Set GUEST_ACCESS=false once the app sends tokens.
+GUEST_ACCESS = os.getenv("GUEST_ACCESS", "true").lower() == "true"
+GUEST_INSTITUTE_ID = os.getenv("GUEST_INSTITUTE_ID", "GUEST001")
+
 # Stock rules
 # Adding/changing a cart item holds that stock for this long, so nobody else can take it.
 CART_HOLD_MINUTES = int(os.getenv("CART_HOLD_MINUTES", "10"))

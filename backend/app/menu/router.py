@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.auth.security import get_optional_user
+from app.auth.security import get_optional_customer
 from app.database.database import get_db
 from app.database.models import User
 from app.menu import service
@@ -20,7 +20,7 @@ def get_menu(
     min_price: Optional[float] = Query(None, ge=0, description="Minimum price"),
     max_price: Optional[float] = Query(None, ge=0, description="Maximum price"),
     available_only: bool = Query(False, description="Only show items that can be ordered now"),
-    user: Optional[User] = Depends(get_optional_user),
+    user: Optional[User] = Depends(get_optional_customer),
     db: Session = Depends(get_db),
 ):
     """List menu items with price, Veg/Non-Veg type, cooking time and stock status.
@@ -39,6 +39,6 @@ def get_categories(db: Session = Depends(get_db)):
 
 @router.get("/{food_id}", response_model=FoodItemOut)
 def get_food_item(
-    food_id: int, user: Optional[User] = Depends(get_optional_user), db: Session = Depends(get_db)
+    food_id: int, user: Optional[User] = Depends(get_optional_customer), db: Session = Depends(get_db)
 ):
     return service.get_food_out(db, food_id, user)
