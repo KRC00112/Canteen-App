@@ -1,4 +1,4 @@
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View, Platform } from 'react-native';
 import login from '../styles/screens/login';
 import styles from '../styles'
 import { TextInput } from 'react-native';
@@ -29,19 +29,32 @@ export default function Login(){
         });
         const data=await response.json();
         if(!response.ok){
+            if(Platform.OS==='web'){
+                alert('Login Failed', "something went wrong");
+                return;
+            }
             Alert.alert('Login Failed', "something went wrong");
             console.log(response)
             return;
         }
 
-        Alert.alert(
-            'Success', 'Logged In Successfully!', [
-                {
-                    text: 'Go to Home',
-                    onPress:()=>navigation.popTo('Home',{userData: data})
-                }
-            ]
-        );
+        if (Platform.OS === 'web') {
+                alert('Logged In Successfully!');
+                navigation.popTo('Home', { userData: data });
+        }else{
+
+             Alert.alert(
+                'Success', 'Logged In Successfully!', [
+                    {
+                        text: 'Go to Home',
+                        onPress:()=>navigation.popTo('Home',{userData: data})
+                    }
+                ]
+            );
+
+        }
+
+       
     }catch(error){
         Alert.alert('connection Error', 'Unable to connect to server.  Please try again');
         console.log(error)
