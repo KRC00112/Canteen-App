@@ -19,12 +19,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/auth/register",
+              "raw": "{{base_url}}/auth/student/register",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "auth",
+                "student",
                 "register"
               ]
             },
@@ -66,12 +67,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/auth/register",
+              "raw": "{{base_url}}/auth/student/register",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "auth",
+                "student",
                 "register"
               ]
             },
@@ -102,6 +104,54 @@
           ]
         },
         {
+          "name": "Register faculty",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/faculty/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "faculty",
+                "register"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"institute_id\": \"FAC1001\",\n  \"username\": \"faculty1\",\n  \"password\": \"Faculty@123\",\n  \"confirm_password\": \"Faculty@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Faculty account created -> 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"role is FACULTY\", () => pm.expect(pm.response.json().role).to.eql(\"FACULTY\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Register same Institute ID twice",
           "request": {
             "method": "POST",
@@ -112,12 +162,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/auth/register",
+              "raw": "{{base_url}}/auth/student/register",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "auth",
+                "student",
                 "register"
               ]
             },
@@ -158,12 +209,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/auth/register",
+              "raw": "{{base_url}}/auth/student/register",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "auth",
+                "student",
                 "register"
               ]
             },
@@ -204,12 +256,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/auth/register",
+              "raw": "{{base_url}}/auth/student/register",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "auth",
+                "student",
                 "register"
               ]
             },
@@ -250,12 +303,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/auth/register",
+              "raw": "{{base_url}}/auth/student/register",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "auth",
+                "student",
                 "register"
               ]
             },
@@ -284,6 +338,52 @@
               }
             }
           ]
+        },
+        {
+          "name": "Old /auth/register still creates a student",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"institute_id\": \"2621540\",\n  \"username\": \"legacy_user\",\n  \"password\": \"Legacy@123\",\n  \"confirm_password\": \"Legacy@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Old endpoint -> 201 or 409 if already run\", () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -301,12 +401,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/auth/login",
+              "raw": "{{base_url}}/auth/student/login",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "auth",
+                "student",
                 "login"
               ]
             },
@@ -340,6 +441,150 @@
           ]
         },
         {
+          "name": "Login faculty",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/faculty/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "faculty",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"institute_id\": \"FAC1001\",\n  \"password\": \"Faculty@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Faculty login OK -> 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"role is FACULTY\", () => pm.expect(j.role).to.eql(\"FACULTY\"));",
+                  "pm.collectionVariables.set(\"faculty_token\", j.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Faculty on student login (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/student/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "student",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"institute_id\": \"FAC1001\",\n  \"password\": \"Faculty@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Wrong login portal -> 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Student on faculty login (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/faculty/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "faculty",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"institute_id\": \"2621532\",\n  \"password\": \"Umar@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Wrong login portal -> 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Login wrong password",
           "request": {
             "method": "POST",
@@ -350,12 +595,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/auth/login",
+              "raw": "{{base_url}}/auth/student/login",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "auth",
+                "student",
                 "login"
               ]
             },
@@ -396,12 +642,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/auth/login",
+              "raw": "{{base_url}}/auth/student/login",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "auth",
+                "student",
                 "login"
               ]
             },
@@ -2600,6 +2847,10 @@
     },
     {
       "key": "student_token",
+      "value": ""
+    },
+    {
+      "key": "faculty_token",
       "value": ""
     },
     {

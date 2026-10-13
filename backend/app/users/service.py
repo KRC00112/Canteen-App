@@ -1,10 +1,10 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.auth.security import utcnow
-from app.database.models import User, UserSession
+from app.database.models import Role, User, UserSession
 from app.users.schemas import (
     LoggedInUser,
     LoggedInUsersOut,
@@ -25,7 +25,7 @@ def to_profile(user: User) -> UserProfile:
     )
 
 
-def list_users(db: Session) -> List[UserWithLoginStatus]:
+def list_users(db: Session, role: Optional[str] = None) -> List[UserWithLoginStatus]:
     """Every registered user, combined with their login status."""
     active = (UserSession.logged_out_at.is_(None)) & (UserSession.expires_at > utcnow())
     stats = {
@@ -41,7 +41,10 @@ def list_users(db: Session) -> List[UserWithLoginStatus]:
         )
     }
     result = []
-    for u in db.scalars(select(User).order_by(User.id)):
+    stmt = select(User).order_by(User.id)
+    if role is not None:
+        stmt = stmt.join(Role).where(Role.name == role)
+    for u in db.scalars(stmt):
         st = stats.get(u.id)
         active_sessions = int(st.active_sessions) if st else 0
         result.append(
