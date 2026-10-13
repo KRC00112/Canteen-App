@@ -1,11 +1,11 @@
 import { Text, View, TextInput, Pressable,Image, StyleSheet } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import styles from "../styles";
 import home from "../styles/screens/home";
 import canteenFoodList from "../canteenFoodList";
-import { useState, useEffect } from "react";
+import { useState, useEffect,useCallback } from "react";
 import { ScrollView } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 
@@ -16,7 +16,7 @@ function ItemListCard({item, addingItemsToCart, removingItemsFromCart, cartItems
 
     
     function showCartCount(id){
-        let count= cartItems.find(x=>x.id===item.id)?.count
+        let count= (cartItems.items)?.find(x=>x.food_id===item.id)?.quantity
         if (count){
             return count;
         }
@@ -199,8 +199,10 @@ export default function Home({route}){
         min: 0,
         max: 1000
     })
-    const [cartItems, setCartItems]=useState([]);
-    const loggedInUserData = route.params.userData
+    const [cartItems, setCartItems]=useState({});
+    const loggedInUserData = route.params?.userData;
+    const token = loggedInUserData?.access_token;
+
     
     const navigation = useNavigation();
     
@@ -219,12 +221,27 @@ export default function Home({route}){
         getFoodList();
     },[])
 
+    useFocusEffect(useCallback(()=>{
 
-    useEffect(()=>{
-        if (route.params?.result) {
-            setCartItems(route.params.result);
+        async function getCartList(){
+            try{
+                const response = await fetch(`https://canteen-backend-xzko.onrender.com/cart`,{
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+                const data = await response.json();
+                setCartItems(data);
+
+            }catch(error){
+                console.log(error);
+            }
         }
-    }, [route.params?.result]);
+        getCartList();
+    },[]))
+
+
+
 
     let categories=[];
     foodList.forEach(item=>{
@@ -243,28 +260,81 @@ export default function Home({route}){
     }
 
 
-    function removingItemsFromCart(id) {
-        setCartItems(prev => {
-            const existingItem=prev.find(item=>item.id === id);
-            if (!existingItem) {
-                return prev;
-            }
+async function removingItemsFromCart(id) {
+    const currentItem = cartItems?.items?.find(
+        item => item.food_id === id
+    );
 
-            return prev.map(item=>item.id===id?{...item, count: item.count-1}:item).filter(item =>item.count>0);
-        });
+    if (!currentItem) {
+        console.log("Item not found in cart");
+        return;
     }
 
-    function addingItemsToCart(id) {
-        setCartItems(prev => {
-            const existingItem = prev.find(item => item.id === id);
+    try {
+        let response;
 
-            if (existingItem) {
-                return prev.map(item =>
-                    item.id===id?{...item, count: item.count+1}:item
-                );
+        if (currentItem.quantity === 1) {
+            response = await fetch(`https://canteen-backend-xzko.onrender.com/cart/items/${currentItem.item_id}`,{
+                    method: 'DELETE',
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+        } else {
+            response = await fetch(`https://canteen-backend-xzko.onrender.com/cart/items/${currentItem.item_id}`,{
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        quantity: currentItem.quantity - 1
+                    })
+                }
+            );
+        }
+
+        if (!response.ok) {
+            console.log('something went wrong')
+            return;
+        }
+
+        const data = await response.json();
+        setCartItems(data);
+
+    } catch (error) {
+        console.log("Cannot connect to server:", error);
+    }
+}
+
+
+
+    async function addingItemsToCart(id) {
+            try{
+                const response = await fetch(`https://canteen-backend-xzko.onrender.com/cart/items`,{
+                    method:'POST',
+                    headers:{
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    },
+                    body:JSON.stringify({
+                        food_id: id,
+                        quantity: 1,
+                    })
+                });
+                if(!response.ok){
+                    console.log('something went wrong');
+                    return;
+                }
+
+                const data =await response.json();
+                setCartItems(data);
+
+            }catch(error){
+                console.log(`cannot connect to server: ${error}`);
             }
-            return [...prev, { id, count: 1 }];
-        });
+
     }
 
     function handleCategorySelection(category){
@@ -322,7 +392,7 @@ export default function Home({route}){
                 <View style={home.nonScrollable}> 
                     <View style={styles.appBar}>
                         <Text>Welcome {loggedInUserData?.username}!</Text>
-                        <Pressable style={home.goToCartBtn} onPress={()=>navigation.navigate('Cart', {cartItems: cartItems, foodList: foodList})}><Text>Cart</Text></Pressable>
+                        <Pressable style={home.goToCartBtn} onPress={()=>navigation.navigate('Cart', {userData: loggedInUserData})}><Text>Cart</Text></Pressable>
                     </View>
                     <View style={home.searchAndFilter}>
                         <TextInput
