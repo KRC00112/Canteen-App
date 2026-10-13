@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.auth.security import get_current_user, require_role
@@ -15,11 +15,14 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 @router.get("", response_model=List[UserWithLoginStatus])
 def list_users(
+    role: Optional[Literal["STUDENT", "FACULTY", "CANTEEN_STAFF", "ADMIN"]] = Query(
+        None, description="Only users with this role"
+    ),
     staff: User = Depends(require_role(CANTEEN_STAFF, ADMIN)),
     db: Session = Depends(get_db),
 ):
     """All registered users with their login status (staff/admin only). No password hashes."""
-    return service.list_users(db)
+    return service.list_users(db, role)
 
 
 @router.get("/logged-in", response_model=LoggedInUsersOut)

@@ -116,7 +116,8 @@ the server running, and the URL changes every time the tunnel restarts.
 - Send JSON bodies with `Content-Type: application/json`.
 - Save `access_token` after login (e.g. DataStore) and send
   `Authorization: Bearer <token>` on protected calls. Tokens last 24 h by default.
-- Route the user to the student or staff screens based on the `role` returned at login.
+- Use the student or faculty register/login endpoint for the screen the user picked
+  (e.g. a "Student / Faculty" toggle), and route by the `role` returned at login.
 - On a 401 response, send the user back to the login screen.
 - Show the `detail` field of error responses to the user.
 
@@ -135,13 +136,24 @@ docker compose up --build
 | Staff account | Institute ID `STAFF001` / `Staff@123` (no self-registration for staff) |
 | Menu | Veg Biryani ₹80 (25), Masala Dosa ₹50 (30), Chicken Roll ₹70 (20, **Non-Veg**), Samosa ₹20 (50), Tea ₹15 (100), Coffee ₹25 (50). All others are Veg; each has ingredients and an average cooking time |
 
-Anyone can register with a new Institute ID; the account is created with the STUDENT role.
-To make someone FACULTY / CANTEEN_STAFF / ADMIN, change their `role_id` in the `users` table
+Students register via `/auth/student/register` (STUDENT role) and faculty via
+`/auth/faculty/register` (FACULTY role). Staff/Admin accounts can't self-register.
+To change someone's role, update their `role_id` in the `users` table
 (1 STUDENT, 2 FACULTY, 3 CANTEEN_STAFF, 4 ADMIN).
 
 ## Authentication
 
-1. `POST /auth/login` (Institute ID + password) returns `access_token`.
+1. Log in with Institute ID + password at the endpoint for the account type. It returns `access_token`:
+
+   | Who | Register | Login |
+   |---|---|---|
+   | Student | `POST /auth/student/register` | `POST /auth/student/login` |
+   | Faculty | `POST /auth/faculty/register` | `POST /auth/faculty/login` |
+   | Staff / Admin | – (seeded / assigned) | `POST /auth/login` |
+
+   Using the wrong login (e.g. a faculty account on the student login) returns **403**
+   "This is a Faculty account, not a Student account. Please use the Faculty login".
+   The old `POST /auth/register` (creates a student) and `POST /auth/login` (any account) still work.
 2. Send the token on every protected request:
    `Authorization: Bearer <access_token>`
 3. `POST /auth/logout` ends the session on the server; the app should also delete the stored token.
@@ -152,11 +164,15 @@ In Swagger, click **Authorize** and paste the token.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/auth/register` | – | Create an account: Institute ID, Username, Password, Confirm Password |
-| POST | `/auth/login` | – | Login with Institute ID + password; returns JWT and role |
+| POST | `/auth/student/register` | – | Create a STUDENT account: Institute ID, Username, Password, Confirm Password |
+| POST | `/auth/faculty/register` | – | Create a FACULTY account (same fields) |
+| POST | `/auth/student/login` | – | Student login (Institute ID + password); returns JWT and role. Other account types get 403 |
+| POST | `/auth/faculty/login` | – | Faculty login; other account types get 403 |
+| POST | `/auth/login` | – | Login for any account type (staff/admin use this) |
+| POST | `/auth/register` | – | *Deprecated*: same as `/auth/student/register` |
 | GET | `/auth/me` | User | Current user |
 | POST | `/auth/logout` | User | End the current session (token stops working) |
-| GET | `/users` | CANTEEN_STAFF / ADMIN | All registered users with login status (`is_logged_in`, `active_sessions`, `last_login_at`, ...) |
+| GET | `/users` | CANTEEN_STAFF / ADMIN | All registered users with login status (`is_logged_in`, `active_sessions`, `last_login_at`, ...); filter with `?role=STUDENT` / `FACULTY` / ... |
 | GET | `/users/logged-in` | CANTEEN_STAFF / ADMIN | All currently logged-in users and their sessions |
 | GET | `/users/me` | User | Profile |
 | GET | `/menu` | – (token optional) | Menu; query params: `search`, `category_id`, `food_type` (`VEG` / `NON_VEG`), `min_price`, `max_price`, `available_only` |
@@ -185,10 +201,11 @@ In Swagger, click **Authorize** and paste the token.
 ### Example requests
 
 ```jsonc
-// POST /auth/register
+// POST /auth/student/register   (faculty: POST /auth/faculty/register, same body)
 { "institute_id": "2621532", "username": "umar", "password": "Umar@123", "confirm_password": "Umar@123" }
+// -> { "message": "Student account created successfully", "user_id": 2, "institute_id": "2621532", "username": "umar", "role": "STUDENT" }
 
-// POST /auth/login
+// POST /auth/student/login   (faculty: POST /auth/faculty/login)
 { "institute_id": "2621532", "password": "Umar@123" }
 // -> { "access_token": "...", "token_type": "bearer", "role": "STUDENT", "user_id": 2, "institute_id": "2621532", "username": "umar" }
 
@@ -287,7 +304,7 @@ Settings (env vars): `CART_HOLD_MINUTES`, `LOW_STOCK_THRESHOLD`, `LOW_STOCK_MAX_
 ## Business rules implemented
 
 - Passwords are hashed with Argon2; plaintext passwords are never stored.
-- Self-registration creates STUDENT accounts; Institute ID and username must be unique, and Password must equal Confirm Password. Staff accounts are seeded or created by an admin.
+- Students and faculty register and log in through their own endpoints; each login only accepts its own account type. Institute ID and username must be unique across everyone, and Password must equal Confirm Password. Staff accounts are seeded or created by an admin.
 - Role-based access: a student token on `/staff/orders` returns **403 Forbidden**.
 - An item becomes unavailable automatically when its quantity reaches 0.
 - The cart and orders cannot exceed the available stock, and they can't use stock held in other customers' carts.

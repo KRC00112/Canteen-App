@@ -12,13 +12,23 @@ from app.auth.security import (
     utcnow,
     verify_password,
 )
-from app.database.models import ACCOUNT_ACTIVE, STUDENT, Role, User, UserSession
+from app.database.models import (
+    ACCOUNT_ACTIVE,
+    ADMIN,
+    CANTEEN_STAFF,
+    FACULTY,
+    STUDENT,
+    Role,
+    User,
+    UserSession,
+)
 
-# Self-registered accounts are customers. Faculty/Staff/Admin roles are assigned by an admin.
-DEFAULT_ROLE = STUDENT
+# Students and faculty register themselves through their own endpoints.
+# Staff/Admin accounts are seeded or assigned by an admin.
+ROLE_LABELS = {STUDENT: "Student", FACULTY: "Faculty", CANTEEN_STAFF: "Staff", ADMIN: "Admin"}
 
 
-def register(db: Session, data: RegisterRequest) -> User:
+def register(db: Session, data: RegisterRequest, role_name: str = STUDENT) -> User:
     institute_id = data.institute_id.strip()
 
     if db.scalar(select(User).where(User.institute_id == institute_id)) is not None:
@@ -29,7 +39,7 @@ def register(db: Session, data: RegisterRequest) -> User:
     if db.scalar(select(User).where(User.username == data.username)) is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username is already taken")
 
-    role = db.scalar(select(Role).where(Role.name == DEFAULT_ROLE))
+    role = db.scalar(select(Role).where(Role.name == role_name))
     user = User(
         institute_id=institute_id,
         username=data.username,
@@ -44,8 +54,13 @@ def register(db: Session, data: RegisterRequest) -> User:
 
 
 def login(
-    db: Session, data: LoginRequest, device: Optional[str] = None, ip_address: Optional[str] = None
+    db: Session,
+    data: LoginRequest,
+    device: Optional[str] = None,
+    ip_address: Optional[str] = None,
+    portal: Optional[str] = None,
 ) -> TokenResponse:
+    """portal=STUDENT / FACULTY only lets accounts with that role log in; None allows any role."""
     user = db.scalar(select(User).where(User.institute_id == data.institute_id.strip()))
     if user is None or not verify_password(data.password, user.password_hash):
         raise HTTPException(
@@ -53,6 +68,14 @@ def login(
         )
     if user.account_status != ACCOUNT_ACTIVE:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is not active")
+    # Checked after the password, so the account type is only revealed to its owner.
+    if portal is not None and user.role.name != portal:
+        actual = ROLE_LABELS.get(user.role.name, user.role.name)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"This is a {actual} account, not a {ROLE_LABELS[portal]} account. "
+            f"Please use the {actual} login",
+        )
 
     session = create_session(db, user, device, ip_address)
     return TokenResponse(
