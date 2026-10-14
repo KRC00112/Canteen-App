@@ -4,7 +4,7 @@ import styles from '../styles'
 import { TextInput } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function Register(){
     const navigation = useNavigation();
@@ -14,24 +14,48 @@ export default function Register(){
     const [password, setPassword]=useState("");
     const [confirmPassword, setConfirmPassword]=useState("");
     const [focus, setFocus]=useState(false);
+    const [selectedRole, setSelectedRole]=useState("");
 
 
-
+    useEffect(()=>{
+        console.log(selectedRole)
+    },[selectedRole])
 
     async function sendData(){
         try{
-            const response=await fetch(`https://canteen-backend-xzko.onrender.com/auth/register`,{
-                method: 'POST',
-                headers:{
-                    'Content-Type': 'application/json'
-                },
-                body:JSON.stringify({ 
-                    institute_id: instituteID,
-                    username: username,
-                    password: password,
-                    confirm_password: confirmPassword 
-                }),
-            });
+            let response;
+            if(selectedRole==='STUDENT'){
+
+                response=await fetch(`https://canteen-backend-xzko.onrender.com/auth/student/register`,{
+                    method: 'POST',
+                    headers:{
+                        'Content-Type': 'application/json'
+                    },
+                    body:JSON.stringify({ 
+                        institute_id: instituteID,
+                        username: username,
+                        password: password,
+                        confirm_password: confirmPassword 
+                    }),
+                });
+
+            }else if(selectedRole==='FACULTY'){
+
+                response=await fetch(`https://canteen-backend-xzko.onrender.com/auth/faculty/register`,{
+                    method: 'POST',
+                    headers:{
+                        'Content-Type': 'application/json'
+                    },
+                    body:JSON.stringify({ 
+                        institute_id: instituteID,
+                        username: username,
+                        password: password,
+                        confirm_password: confirmPassword 
+                    }),
+                });
+
+            }
+           
 
             // const data=await response.json();
             if(!response.ok){
@@ -40,6 +64,8 @@ export default function Register(){
                 return;
             }
 
+            const data = await response.json();
+            console.log(JSON.stringify(data));
             Alert.alert(
                 'Success', 'Your account has been created!', [
                     {
@@ -76,6 +102,16 @@ export default function Register(){
                         onChangeText={value=>setUsername(value)}
                     />
                 </View>
+                <View style={styles.formInputComponent}>
+                    <Text style={styles.formInputLabel}>Select role</Text>
+                    <select style={styles.inputText} onChange={e=>setSelectedRole(e.target.value)}>
+                        <option value="">No option selected</option>
+                        <option value="STUDENT">STUDENT</option>
+                        <option value="FACULTY">FACULTY</option>
+                    </select>
+                </View>
+
+
                 <View style={styles.formInputComponent}>
                     <Text style={styles.formInputLabel}>Password</Text>
                     <TextInput 

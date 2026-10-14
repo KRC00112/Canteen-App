@@ -5,7 +5,7 @@ import styles from './styles'
 import Login from "./screens/Login"
 import Register from "./screens/Register"
 import Home from './screens/Home';
-import Cart from './screens/Cart';
+import Cart from './screens/customer/Cart';
 
 import {createStaticNavigation} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
@@ -16,6 +16,8 @@ import {
   SafeAreaInsetsContext,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import CustomerHome from './screens/customer/CustomerHome';
+import StaffHome from './screens/staff/StaffHome';
 
 
 const RootStack = createNativeStackNavigator({
@@ -36,7 +38,20 @@ const RootStack = createNativeStackNavigator({
       options:{
         headerShown:false,
       }
-    },Cart: {
+    },
+    CustomerHome: {
+      screen: CustomerHome,
+      options:{
+        headerShown:false,
+      }
+    },
+    StaffHome: {
+      screen: StaffHome,
+      options:{
+        headerShown:false,
+      }
+    }
+    ,Cart: {
       screen: Cart,
       options:{
         headerShown:false,

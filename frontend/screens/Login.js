@@ -27,7 +27,7 @@ export default function Login(){
         )
 
         });
-        const data=await response.json();
+         
         if(!response.ok){
             if(Platform.OS==='web'){
                 alert('Login Failed', "something went wrong");
@@ -37,7 +37,8 @@ export default function Login(){
             console.log(response)
             return;
         }
-
+        const data=await response.json();
+        console.log(JSON.stringify(data));
         if (Platform.OS === 'web') {
                 alert('Logged In Successfully!');
                 navigation.popTo('Home', { userData: data });

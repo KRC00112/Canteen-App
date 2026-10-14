@@ -199,6 +199,30 @@ detailsPrice: {
   fontSize: 20,
   fontWeight: 'bold',
 },
+statusCards:{
+  display:'flex',
+  flexDirection:'row',
+  gap:10,
+},
+statusCard:{
+  flex:1,
+  borderWidth:2,
+  boxShadow: '4px 5px rgba(0, 0, 0)',
+  padding:5,
+  display:'flex',
+  flexDirection:'row',
+  justifyContent:'center'
+},
+ordersCard:{
+
+  borderWidth:2,
+  backgroundColor:'white',
+  boxShadow: '4px 5px rgba(0, 0, 0)',
+  marginBottom:10,
+  padding:5,
+
+
+}
 
 
 

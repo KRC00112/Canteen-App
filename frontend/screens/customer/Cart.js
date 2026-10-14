@@ -2,8 +2,8 @@ import { Text, View, Pressable, Image, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect} from "@react-navigation/native";
 import { useState, useEffect, useCallback} from "react";
-import styles from "../styles";
-import cart from "../styles/screens/cart";
+import styles from "../../styles";
+import cart from "../../styles/screens/cart";
 
 function CartItemCard({ item, addingItemsToCart, removingItemsFromCart }) {
     return (
@@ -16,7 +16,7 @@ function CartItemCard({ item, addingItemsToCart, removingItemsFromCart }) {
                 </View>
             </View>
 
-            <Image source={require("../assets/android-icon-background.png")} style={cart.itemImage} resizeMode="cover" />
+            <Image source={require("../../assets/android-icon-background.png")} style={cart.itemImage} resizeMode="cover" />
 
             <View style={cart.cardButtonsView}>
                 <View style={cart.quantityView}>
@@ -40,6 +40,10 @@ function CartItemCard({ item, addingItemsToCart, removingItemsFromCart }) {
         </View>
     );
 }
+
+
+
+
 
 export default function Cart({route}) {
     const navigation=useNavigation();
@@ -146,6 +150,42 @@ export default function Cart({route}) {
             }
     }
 
+    async function placeOrder(){
+
+        try{
+            const response = await fetch(`https://canteen-backend-xzko.onrender.com/orders`,{
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if(!response.ok){
+                console.log('something went wrong');
+                return;
+            }
+
+            const data=await response.json();
+            const delResponse = await fetch(`https://canteen-backend-xzko.onrender.com/cart`,{
+                    method: 'DELETE',
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+            if (!delResponse.ok){
+                console.log('order placed but couldn\'t clear cart');
+            }
+            navigation.popTo('Home', {
+                userData: loggedInUserData,
+            })
+
+        }catch(error){
+            console.log(`can't connect to server: ${error}`)
+        }
+
+    }
+
 
     const totalItems=cartItems.items?.reduce((total, item) => total + item.quantity, 0);
     const totalPrice= cartItems.items?.reduce((total, item) => total + item.price * item.quantity, 0);
@@ -175,8 +215,8 @@ export default function Cart({route}) {
                             <Text>Total ({totalItems} items)</Text>
                             <Text style={cart.totalPrice}>₹ {totalPrice}</Text>
                         </View>
-                        <Pressable style={cart.checkoutBtn} onPress={() => navigation.navigate("Checkout", { cartItems })}>
-                            <Text style={cart.checkoutBtnText}>Checkout →</Text>
+                        <Pressable style={cart.checkoutBtn} onPress={placeOrder}> 
+                            <Text style={cart.checkoutBtnText}>Place Order →</Text>
                         </Pressable>
                     </View>
                 )}
