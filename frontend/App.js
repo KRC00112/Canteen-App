@@ -16,7 +16,7 @@ import {
   SafeAreaInsetsContext,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import CustomerHome from './screens/customer/CustomerHome';
+import CustomerTabs from './screens/customer/CustomerTabs';
 import StaffHome from './screens/staff/StaffHome';
 
 
@@ -40,7 +40,7 @@ const RootStack = createNativeStackNavigator({
       }
     },
     CustomerHome: {
-      screen: CustomerHome,
+      screen: CustomerTabs,
       options:{
         headerShown:false,
       }
@@ -72,5 +72,4 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
-
 

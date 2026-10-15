@@ -168,7 +168,7 @@ function FilterForm({categories, handleCategorySelection, selectedCategories, ha
                 </View>
                 
                 <View>
-                    <Text style={{fontWeight:'bold'}}>Item price limit: </Text>
+                    <Text style={{fontWeight:'bold'}}>Item price range: </Text>
                     <View style={home.itemsGrouping}>
                         <TextInput style={[styles.inputText, {fontWeight:'bold'}]} placeholder="Minimum..." onChangeText={value=>handleMinPriceSelection(value)}/>
                         <TextInput style={[styles.inputText, {fontWeight:'bold'}]} placeholder="Maximum..." onChangeText={value=>handleMaxPriceSelection(value)}/>
@@ -405,8 +405,8 @@ async function removingItemsFromCart(id) {
                         const categoryMatches=selectedCategories.length===0 || selectedCategories.includes(item.category);
                         const typeMatches=itemType==="ALL" || itemType===item.food_type;
                          // TODO: Fix bad pattern where either one of min or max is missing and the other exists
-                        const priceMatches=item.price>=itemPriceLimits.min && item.price<=itemPriceLimits.max; 
-                        const searchInputMatch=item.name.includes(searchInput);  
+                        const priceMatches=item.price>=Number(itemPriceLimits.min) && item.price<=Number(itemPriceLimits.max); 
+                        const searchInputMatch=item.name.toLowerCase().includes(searchInput.trim().toLowerCase());  
 
                         if (categoryMatches && typeMatches && priceMatches && searchInputMatch) {
                             return <ItemListCard 
