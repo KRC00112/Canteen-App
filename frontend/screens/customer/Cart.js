@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback} from "react";
 import styles from "../../styles";
 import cart from "../../styles/screens/cart";
 
+
 function CartItemCard({ item, addingItemsToCart, removingItemsFromCart }) {
     return (
         <View style={cart.itemListCard}>
@@ -176,9 +177,11 @@ export default function Cart({route}) {
             if (!delResponse.ok){
                 console.log('order placed but couldn\'t clear cart');
             }
-            navigation.popTo('Home', {
-                userData: loggedInUserData,
-            })
+            navigation.navigate('CustomerTabs', {
+                userData: loggedInUserData, // for CustomerTabs and its tabs
+                screen: 'Orders',
+                // params: { userData: loggedInUserData }, // for Orders
+            });
 
         }catch(error){
             console.log(`can't connect to server: ${error}`)

@@ -367,7 +367,7 @@ async function removingItemsFromCart(id) {
     }
     
     return(
-        <SafeAreaView style={home.container}>
+        <SafeAreaView style={home.container} edges={['top', 'left', 'right']} >
             <View style={styles.defaultView}>
                 {showFilterForm && <FilterForm 
                     categories={categories} 

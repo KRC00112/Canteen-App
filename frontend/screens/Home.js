@@ -22,10 +22,13 @@ export default function Home({route}){
 
     useEffect(() => {
         if (role === "STUDENT" || role === "FACULTY") {
-            navigation.replace("CustomerHome", {userData: route.params?.userData});
+            navigation.replace("CustomerTabs", {userData: route.params?.userData});
         } else if (role === "CANTEEN_STAFF") {
             navigation.replace("StaffHome", {userData: route.params?.userData});
+        } else if (role === "ADMIN") {
+            navigation.replace("AdminTabs", {userData: route.params?.userData});
         }
+        
     }, [role, route.params?.userData]);
 
     return (

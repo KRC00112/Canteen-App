@@ -74,6 +74,7 @@ const styles = StyleSheet.create({
   },
   defaultView:{
     padding:20,
+    paddingBottom: 0,
     flex: 1,
     gap:10
   },

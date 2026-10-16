@@ -3,10 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import CustomerHome from './CustomerHome';
 import Orders from './Orders';
 import Profile from './Profile';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 const Tab = createBottomTabNavigator();
 
 export default function CustomerTabs({ route }) {
+  const insets = useSafeAreaInsets();
   const userData = route.params?.userData;
 
   return (
@@ -16,15 +19,15 @@ export default function CustomerTabs({ route }) {
         tabBarActiveTintColor: '#6D28D9',
         tabBarInactiveTintColor: '#6B7280',
         tabBarStyle: {
-          height: 62,
+          height: 62+ insets.bottom,
           paddingTop: 6,
-          paddingBottom: 8,
+          paddingBottom: Math.max(insets.bottom, 8),
         },
         tabBarIcon: ({ color, size, focused }) => {
           let iconName;
 
-          if (tabRoute.name === 'CustomerHome') {
-            iconName = focused ? 'home' : 'home-outline';
+          if (tabRoute.name === 'Menu') {
+            iconName = focused ? 'menu' : 'menu-outline';
           } else if (tabRoute.name === 'Orders') {
             iconName = focused ? 'receipt' : 'receipt-outline';
           } else {
@@ -36,13 +39,22 @@ export default function CustomerTabs({ route }) {
       })}
     >
       <Tab.Screen
-        name="CustomerHome"
+        name="Menu"
         component={CustomerHome}
         initialParams={{ userData }}
-        options={{ tabBarLabel: 'Home' }}
+        options={{ tabBarLabel: 'Menu' }}
       />
-      <Tab.Screen name="Orders" component={Orders} initialParams={{ userData }}/>
-      <Tab.Screen name="Profile" component={Profile} initialParams={{ userData }}/>
+      <Tab.Screen 
+        name="Orders" 
+        component={Orders} 
+        initialParams={{ userData }}
+      />
+
+      <Tab.Screen 
+        name="Profile" 
+        component={Profile} 
+        initialParams={{ userData }}
+      />
     </Tab.Navigator>
   );
 }
