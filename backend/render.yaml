@@ -26,3 +26,5 @@ services:
         value: "1440"
       - key: SEED_STAFF_PASSWORD
         sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false

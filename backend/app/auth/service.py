@@ -28,6 +28,10 @@ from app.database.models import (
 ROLE_LABELS = {STUDENT: "Student", FACULTY: "Faculty", CANTEEN_STAFF: "Staff", ADMIN: "Admin"}
 
 
+def _article(label: str) -> str:
+    return f"an {label}" if label[0] in "AEIOU" else f"a {label}"
+
+
 def register(db: Session, data: RegisterRequest, role_name: str = STUDENT) -> User:
     institute_id = data.institute_id.strip()
 
@@ -60,7 +64,7 @@ def login(
     ip_address: Optional[str] = None,
     portal: Optional[str] = None,
 ) -> TokenResponse:
-    """portal=STUDENT / FACULTY only lets accounts with that role log in; None allows any role."""
+    """portal=STUDENT / FACULTY / ADMIN only lets accounts with that role log in; None allows any role."""
     user = db.scalar(select(User).where(User.institute_id == data.institute_id.strip()))
     if user is None or not verify_password(data.password, user.password_hash):
         raise HTTPException(
@@ -73,7 +77,7 @@ def login(
         actual = ROLE_LABELS.get(user.role.name, user.role.name)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"This is a {actual} account, not a {ROLE_LABELS[portal]} account. "
+            detail=f"This is {_article(actual)} account, not {_article(ROLE_LABELS[portal])} account. "
             f"Please use the {actual} login",
         )
 

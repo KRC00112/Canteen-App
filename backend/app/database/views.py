@@ -48,6 +48,23 @@ VIEWS = {
         WHERE {_ACTIVE}
         ORDER BY s.last_seen_at DESC
     """,
+    # The one permanent main canteen admin account (no password hash).
+    "admin_account": f"""
+        SELECT
+            u.id                                      AS user_id,
+            u.institute_id,
+            u.username,
+            r.name                                    AS role,
+            u.account_status,
+            u.created_at,
+            COUNT(s.id) FILTER (WHERE {_ACTIVE}) > 0  AS is_logged_in,
+            MAX(s.created_at)                         AS last_login_at
+        FROM users u
+        JOIN roles r ON r.id = u.role_id
+        LEFT JOIN user_sessions s ON s.user_id = u.id
+        WHERE r.name = 'ADMIN'
+        GROUP BY u.id, r.name
+    """,
     # Every food item with its category, Veg / Non-Veg type and live stock.
     "menu_overview": """
         SELECT

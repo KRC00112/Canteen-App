@@ -134,6 +134,7 @@ docker compose up --build
 |---|---|
 | Roles | STUDENT, FACULTY, CANTEEN_STAFF, ADMIN |
 | Staff account | Institute ID `STAFF001` / `Staff@123` (no self-registration for staff) |
+| Admin account | Institute ID `ADMIN001` / `Admin@123`: the one permanent main canteen admin (set `SEED_ADMIN_PASSWORD` to change). No registration; a unique index (`uq_users_single_admin`) stops the database from ever holding a second ADMIN |
 | Menu | Veg Biryani ₹80 (25), Masala Dosa ₹50 (30), Chicken Roll ₹70 (20, **Non-Veg**), Samosa ₹20 (50), Tea ₹15 (100), Coffee ₹25 (50). All others are Veg; each has ingredients and an average cooking time |
 
 Students register via `/auth/student/register` (STUDENT role) and faculty via
@@ -149,7 +150,8 @@ To change someone's role, update their `role_id` in the `users` table
    |---|---|---|
    | Student | `POST /auth/student/register` | `POST /auth/student/login` |
    | Faculty | `POST /auth/faculty/register` | `POST /auth/faculty/login` |
-   | Staff / Admin | – (seeded / assigned) | `POST /auth/login` |
+   | Staff | – (seeded / assigned) | `POST /auth/login` |
+   | Main canteen admin | – (seeded) | `POST /auth/admin/login` |
 
    Using the wrong login (e.g. a faculty account on the student login) returns **403**
    "This is a Faculty account, not a Student account. Please use the Faculty login".
@@ -168,6 +170,7 @@ In Swagger, click **Authorize** and paste the token.
 | POST | `/auth/faculty/register` | – | Create a FACULTY account (same fields) |
 | POST | `/auth/student/login` | – | Student login (Institute ID + password); returns JWT and role. Other account types get 403 |
 | POST | `/auth/faculty/login` | – | Faculty login; other account types get 403 |
+| POST | `/auth/admin/login` | – | Main canteen admin login; other account types get 403 |
 | POST | `/auth/login` | – | Login for any account type (staff/admin use this) |
 | POST | `/auth/register` | – | *Deprecated*: same as `/auth/student/register` |
 | GET | `/auth/me` | User | Current user |
@@ -191,6 +194,14 @@ In Swagger, click **Authorize** and paste the token.
 | GET | `/staff/inventory` | CANTEEN_STAFF / ADMIN | Exact stock, units held in carts, units ordered in the last 24 h |
 | PUT | `/staff/inventory/{food_id}` | CANTEEN_STAFF / ADMIN | Set stock `{quantity, available?}` (restock) |
 | PATCH | `/staff/menu/{food_id}` | CANTEEN_STAFF / ADMIN | Edit `food_type`, `ingredients`, `avg_cooking_time_minutes`, `price`, `description` |
+| GET | `/admin/users` | ADMIN | Every account with login status (`?role=STUDENT` / ...) |
+| GET | `/admin/users/{user_id}` | ADMIN | Full customer details: profile, login history, cart, orders, total spent, notifications, stock alerts |
+| GET | `/admin/orders` | ADMIN | Every order (`?status=PLACED`, `?user_id=3`) |
+| GET | `/admin/orders/{order_id}` | ADMIN | Any order with the customer who placed it |
+| GET | `/admin/sessions` | ADMIN | Login history of every account: device, IP, login/logout times (`?active_only=true`) |
+| GET | `/admin/carts` | ADMIN | Every customer's current cart |
+| GET | `/admin/notifications` | ADMIN | Notifications sent to every user (`?user_id=3`) |
+| GET | `/admin/stock-alerts` | ADMIN | Every customer's "Notify me" request |
 | GET | `/notifications` | User | My notifications + `unread_count` (`?unread_only=true`) |
 | POST | `/notifications/{id}/read` | User | Mark one as read |
 | POST | `/notifications/read-all` | User | Mark all as read |
@@ -222,18 +233,20 @@ Errors always look like `{ "detail": "..." }`, using these status codes:
 
 ## Browsing users in the database
 
-Two read-only views are created automatically (PostgreSQL). In pgAdmin they're under
+Read-only views are created automatically (PostgreSQL). In pgAdmin they're under
 **Schemas → public → Views**; in the Neon console, query them in the **SQL Editor**:
 
 | View | Shows |
 |---|---|
 | `users_overview` | Every registered user and their login status: `is_logged_in`, `active_sessions`, `total_logins`, `last_login_at`, `last_seen_at` |
 | `logged_in_users` | Only the users logged in right now, one row per active login (device, IP, login time) |
+| `admin_account` | The one permanent main canteen admin account and its login status |
 | `menu_overview` | Every food item with category, `food_type` (VEG / NON_VEG), price, cooking time, ingredients and stock |
 
 ```sql
 SELECT * FROM users_overview;
 SELECT * FROM logged_in_users;
+SELECT * FROM admin_account;
 SELECT * FROM menu_overview;
 ```
 
