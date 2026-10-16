@@ -19,6 +19,10 @@ SEED_STAFF_INSTITUTE_ID = os.getenv("SEED_STAFF_INSTITUTE_ID", "STAFF001")
 SEED_STAFF_USERNAME = os.getenv("SEED_STAFF_USERNAME", "staff01")
 SEED_STAFF_PASSWORD = os.getenv("SEED_STAFF_PASSWORD", "Staff@123")
 
+SEED_ADMIN_INSTITUTE_ID = os.getenv("SEED_ADMIN_INSTITUTE_ID", "ADMIN001")
+SEED_ADMIN_USERNAME = os.getenv("SEED_ADMIN_USERNAME", "canteen_admin")
+SEED_ADMIN_PASSWORD = os.getenv("SEED_ADMIN_PASSWORD", "Admin@123")
+
 # Stock rules
 # Adding/changing a cart item holds that stock for this long, so nobody else can take it.
 CART_HOLD_MINUTES = int(os.getenv("CART_HOLD_MINUTES", "10"))
