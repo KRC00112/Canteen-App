@@ -5,7 +5,7 @@ from app.auth import service
 from app.auth.schemas import LoginRequest, RegisterRequest, RegisterResponse, TokenResponse
 from app.auth.security import get_current_session, get_current_user
 from app.database.database import get_db
-from app.database.models import FACULTY, STUDENT, User, UserSession
+from app.database.models import ADMIN, FACULTY, STUDENT, User, UserSession
 from app.users.schemas import UserProfile
 from app.users.service import to_profile
 
@@ -55,6 +55,12 @@ def login_student(data: LoginRequest, request: Request, db: Session = Depends(ge
 def login_faculty(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """Faculty login. Other account types get 403 telling them which login to use."""
     return _login(db, data, request, FACULTY)
+
+
+@router.post("/admin/login", response_model=TokenResponse)
+def login_admin(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    """Main canteen admin login. Only ADMIN accounts; everyone else gets 403."""
+    return _login(db, data, request, ADMIN)
 
 
 @router.post(

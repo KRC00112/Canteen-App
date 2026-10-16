@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.admin.router import router as admin_router
 from app.auth.router import router as auth_router
 from app.cart.router import router as cart_router
 from app.database.database import init_db
@@ -42,6 +43,7 @@ app.include_router(cart_router)
 app.include_router(orders_router)
 app.include_router(staff_router)
 app.include_router(notifications_router)
+app.include_router(admin_router)
 
 
 @app.get("/", tags=["Health"])

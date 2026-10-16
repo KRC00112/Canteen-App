@@ -1,4 +1,4 @@
-"""Seed the database with roles, a staff account and menu data.
+"""Seed the database with roles, a staff account, an admin account and menu data.
 
 Safe to run multiple times: existing rows are left unchanged.
 
@@ -6,13 +6,21 @@ Safe to run multiple times: existing rows are left unchanged.
 """
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.auth.security import hash_password
-from app.config import SEED_STAFF_INSTITUTE_ID, SEED_STAFF_PASSWORD, SEED_STAFF_USERNAME
+from app.config import (
+    SEED_ADMIN_INSTITUTE_ID,
+    SEED_ADMIN_PASSWORD,
+    SEED_ADMIN_USERNAME,
+    SEED_STAFF_INSTITUTE_ID,
+    SEED_STAFF_PASSWORD,
+    SEED_STAFF_USERNAME,
+)
 from app.database.database import SessionLocal, init_db
 from app.database.models import (
     ACCOUNT_ACTIVE,
+    ADMIN,
     ALL_ROLES,
     CANTEEN_STAFF,
     NON_VEG,
@@ -67,6 +75,22 @@ def seed():
                 "account_status": ACCOUNT_ACTIVE,
             },
         )
+        # There is exactly one permanent main canteen admin; it never registers.
+        admin_role_id = roles[ADMIN].id
+        if db.scalar(select(User).where(User.role_id == admin_role_id)) is None:
+            db.add(User(
+                institute_id=SEED_ADMIN_INSTITUTE_ID,
+                username=SEED_ADMIN_USERNAME,
+                password_hash=hash_password(SEED_ADMIN_PASSWORD),
+                role_id=admin_role_id,
+                account_status=ACCOUNT_ACTIVE,
+            ))
+            db.flush()
+        # The database itself refuses a second ADMIN account.
+        db.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_single_admin "
+            f"ON users (role_id) WHERE role_id = {admin_role_id}"
+        ))
 
         for name, description, category, price, quantity, food_type, ingredients, cook_minutes in MENU:
             cat = get_or_create(db, Category, name=category)
@@ -100,6 +124,7 @@ def seed():
         db.commit()
         print("Seed complete.")
         print(f"  Staff login: Institute ID {SEED_STAFF_INSTITUTE_ID} / {SEED_STAFF_PASSWORD}")
+        print(f"  Admin login: Institute ID {SEED_ADMIN_INSTITUTE_ID} / {SEED_ADMIN_PASSWORD}")
     finally:
         db.close()
 
