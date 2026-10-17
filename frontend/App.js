@@ -17,8 +17,12 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import CustomerTabs from './screens/customer/CustomerTabs';
+import AdminTabs from './screens/admin/AdminTabs';
 import StaffHome from './screens/staff/StaffHome';
 import Orders from './screens/customer/Orders';
+
+
+
 
 
 const RootStack = createNativeStackNavigator({

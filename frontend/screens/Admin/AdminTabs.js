@@ -1,7 +1,8 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
+import AdminHomeTabs from './AdminHomeTabs/AdminHomeTabs';
+import FoodItems from './FoodItems'
 
 const Tab = createBottomTabNavigator();
 
@@ -12,7 +13,7 @@ export default function AdminTabs({ route }) {
   return (
     <Tab.Navigator
       screenOptions={({ route: tabRoute }) => ({
-        headerShown: false,
+        // headerShown: false,
         tabBarActiveTintColor: '#6D28D9',
         tabBarInactiveTintColor: '#6B7280',
         tabBarStyle: {
@@ -23,12 +24,10 @@ export default function AdminTabs({ route }) {
         tabBarIcon: ({ color, size, focused }) => {
           let iconName;
 
-          if (tabRoute.name === 'Menu') {
-            iconName = focused ? 'list' : 'list-outline';
-          } else if (tabRoute.name === 'Orders') {
-            iconName = focused ? 'receipt' : 'receipt-outline';
-          } else {
-            iconName = focused ? 'person' : 'person-outline';
+          if (tabRoute.name === 'Users List') {
+            iconName = focused ? 'people' : 'people-outline';
+          }else if (tabRoute.name === 'Food List') {
+            iconName = focused ? 'fast-food' : 'fast-food-outline';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -36,19 +35,19 @@ export default function AdminTabs({ route }) {
       })}
     >
       <Tab.Screen
-        name="Menu"
-        component={CustomerHome}
+        name="Users List"
+        component={AdminHomeTabs}
         initialParams={{ userData }}
-        options={{ tabBarLabel: 'Menu' }}
+        options={{ tabBarLabel: 'Users List' }}
       />
-      <Tab.Screen 
-        name="Orders" 
-        component={Orders} 
-        initialParams={{ userData }}/>
-      <Tab.Screen 
-        name="Profile" 
-        component={Profile} 
-        initialParams={{ userData }}/>
+
+       <Tab.Screen
+        name="Food List"
+        component={FoodItems}
+        initialParams={{ userData }}
+        options={{ tabBarLabel: 'Food List' }}
+      />
+
     </Tab.Navigator>
   );
 }

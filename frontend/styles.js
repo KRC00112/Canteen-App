@@ -83,6 +83,19 @@ const styles = StyleSheet.create({
     display:'flex',
     flexDirection:'row',
     justifyContent:'space-between'
+  },
+  addNewCard:{
+    flexDirection: "row",
+    gap:8,
+    alignItems: "center",
+    backgroundColor: "white",
+    borderWidth: 2,
+    borderColor: "black",
+    borderStyle:'dashed',
+    padding: 12,
+    marginTop: 8,
+    marginBottom: 4,
+    boxShadow: "4px 5px rgba(0, 0, 0)",
   }
 });
 
