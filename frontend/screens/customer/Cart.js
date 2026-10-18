@@ -53,6 +53,9 @@ export default function Cart({route}) {
     const [cartItems, setCartItems]=useState({}); //this holds the food id and count unlike itemsInCart that fetches all the other details about the food from the id
 
 
+
+   
+
     useFocusEffect(useCallback(()=>{
 
         async function getCartList(){
@@ -193,6 +196,68 @@ export default function Cart({route}) {
     const totalItems=cartItems.items?.reduce((total, item) => total + item.quantity, 0);
     const totalPrice= cartItems.items?.reduce((total, item) => total + item.price * item.quantity, 0);
 
+
+    async function payNow() {
+      const amount = totalPrice;
+
+      // Create order by calling the server endpoint
+      const response = await fetch('/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ amount, currency: 'INR', receipt: 'receipt#1', notes: {} })
+      });
+
+      const order = await response.json();
+
+      // Open Razorpay Checkout
+      const options = {
+        key: 'id', // Replace with your Razorpay key_id
+        amount: order.amount,
+        currency: order.currency,
+        name: 'acme',
+        description: 'Test Transaction',
+        order_id: order.id, // This is the order_id created in the backend
+        callback_url: 'http://localhost:3000/payment-success', // Your success URL
+        prefill: {
+          name: 'Your Name',
+          email: 'your.email@example.com',
+          contact: '9999999999'
+        },
+        theme: {
+          color: '#F37254'
+        },
+        handler: function (response) {
+          fetch('/verify-payment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            })
+          }).then(res => res.json())
+            .then(data => {
+              if (data.status === 'ok') {
+                window.location.href = '/payment-success';
+              } else {
+                alert('Payment verification failed');
+              }
+            }).catch(error => {
+              console.error('Error:', error);
+              alert('Error verifying payment');
+            });
+        }
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.open();
+    }
+
+
     return (
         <SafeAreaView style={cart.container}>
             <View style={styles.defaultView}>
@@ -218,7 +283,7 @@ export default function Cart({route}) {
                             <Text>Total ({totalItems} items)</Text>
                             <Text style={cart.totalPrice}>₹ {totalPrice}</Text>
                         </View>
-                        <Pressable style={cart.checkoutBtn} onPress={placeOrder}> 
+                        <Pressable style={cart.checkoutBtn} onPress={payNow}> 
                             <Text style={cart.checkoutBtnText}>Place Order →</Text>
                         </Pressable>
                     </View>

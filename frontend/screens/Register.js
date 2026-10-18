@@ -108,6 +108,8 @@ export default function Register(){
                         <option value="">No option selected</option>
                         <option value="STUDENT">STUDENT</option>
                         <option value="FACULTY">FACULTY</option>
+                        <option value="CANTEEN_STAFF">CANTEEN_STAFF</option>
+                        <option value="ADMIN">ADMIN</option>
                     </select>
                 </View>
 
