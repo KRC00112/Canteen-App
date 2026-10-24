@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.security import utcnow
 from app.config import CART_HOLD_MINUTES, LOW_STOCK_MAX_PER_CUSTOMER, LOW_STOCK_THRESHOLD
-from app.database.models import Cart, CartItem, Inventory, Order, OrderItem
+from app.database.models import Cart, CartItem, FoodItem, Inventory, Order, OrderItem
 
 # Same upper bound as the cart request schemas.
 MAX_CART_QUANTITY = 50
@@ -48,9 +48,13 @@ def get_inventory(db: Session, food_id: int, lock: bool = False) -> Inventory:
     lock=True takes a row lock (SELECT ... FOR UPDATE) so that concurrent orders
     and cart holds cannot claim the same stock.
     """
-    stmt = select(Inventory).where(Inventory.food_item_id == food_id)
+    stmt = (
+        select(Inventory)
+        .join(FoodItem)
+        .where(Inventory.food_item_id == food_id, FoodItem.removed_at.is_(None))
+    )
     if lock:
-        stmt = stmt.with_for_update()
+        stmt = stmt.with_for_update(of=Inventory)
     inv = db.scalar(stmt)
     if inv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Food item not found")

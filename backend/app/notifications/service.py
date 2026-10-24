@@ -30,7 +30,7 @@ from app.menu import service as menu_service
 
 class NotificationOut(BaseModel):
     id: int
-    # BACK_IN_STOCK | CART_ITEM_SOLD_OUT | CART_ITEM_LOW_STOCK | ORDER_PLACED
+    # BACK_IN_STOCK | CART_ITEM_SOLD_OUT | CART_ITEM_LOW_STOCK | ORDER_PLACED | ITEM_REMOVED
     type: str
     message: str
     food_id: Optional[int]

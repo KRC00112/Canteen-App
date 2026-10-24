@@ -26,6 +26,7 @@ class RegisterResponse(BaseModel):
     institute_id: str
     username: str
     role: str
+    account_status: str = "ACTIVE"
 
 
 class LoginRequest(BaseModel):

@@ -14,6 +14,7 @@ from app.auth.security import (
 )
 from app.database.models import (
     ACCOUNT_ACTIVE,
+    ACCOUNT_PENDING,
     ADMIN,
     CANTEEN_STAFF,
     FACULTY,
@@ -23,8 +24,8 @@ from app.database.models import (
     UserSession,
 )
 
-# Students and faculty register themselves through their own endpoints.
-# Staff/Admin accounts are seeded or assigned by an admin.
+# Students, faculty and staff register themselves through their own endpoints.
+# Staff accounts stay PENDING until the admin approves them. The one admin is seeded.
 ROLE_LABELS = {STUDENT: "Student", FACULTY: "Faculty", CANTEEN_STAFF: "Staff", ADMIN: "Admin"}
 
 
@@ -32,7 +33,9 @@ def _article(label: str) -> str:
     return f"an {label}" if label[0] in "AEIOU" else f"a {label}"
 
 
-def register(db: Session, data: RegisterRequest, role_name: str = STUDENT) -> User:
+def register(
+    db: Session, data: RegisterRequest, role_name: str = STUDENT, account_status: str = ACCOUNT_ACTIVE
+) -> User:
     institute_id = data.institute_id.strip()
 
     if db.scalar(select(User).where(User.institute_id == institute_id)) is not None:
@@ -49,7 +52,7 @@ def register(db: Session, data: RegisterRequest, role_name: str = STUDENT) -> Us
         username=data.username,
         password_hash=hash_password(data.password),
         role_id=role.id,
-        account_status=ACCOUNT_ACTIVE,
+        account_status=account_status,
     )
     db.add(user)
     db.commit()
@@ -64,11 +67,16 @@ def login(
     ip_address: Optional[str] = None,
     portal: Optional[str] = None,
 ) -> TokenResponse:
-    """portal=STUDENT / FACULTY / ADMIN only lets accounts with that role log in; None allows any role."""
+    """portal=STUDENT / FACULTY / CANTEEN_STAFF / ADMIN only lets accounts with that role log in; None allows any role."""
     user = db.scalar(select(User).where(User.institute_id == data.institute_id.strip()))
     if user is None or not verify_password(data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Institute ID or password"
+        )
+    if user.account_status == ACCOUNT_PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your staff account is waiting for admin approval",
         )
     if user.account_status != ACCOUNT_ACTIVE:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is not active")

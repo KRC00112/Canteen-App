@@ -133,12 +133,13 @@ docker compose up --build
 | What | Value |
 |---|---|
 | Roles | STUDENT, FACULTY, CANTEEN_STAFF, ADMIN |
-| Staff account | Institute ID `STAFF001` / `Staff@123` (no self-registration for staff) |
+| Staff account | Institute ID `STAFF001` / `Staff@123` (more staff register at `/auth/staff/register` and need admin approval) |
 | Admin account | Institute ID `ADMIN001` / `Admin@123`: the one permanent main canteen admin (set `SEED_ADMIN_PASSWORD` to change). No registration; a unique index (`uq_users_single_admin`) stops the database from ever holding a second ADMIN |
 | Menu | Veg Biryani ₹80 (25), Masala Dosa ₹50 (30), Chicken Roll ₹70 (20, **Non-Veg**), Samosa ₹20 (50), Tea ₹15 (100), Coffee ₹25 (50). All others are Veg; each has ingredients and an average cooking time |
 
 Students register via `/auth/student/register` (STUDENT role) and faculty via
-`/auth/faculty/register` (FACULTY role). Staff/Admin accounts can't self-register.
+`/auth/faculty/register` (FACULTY role) and staff via `/auth/staff/register` (CANTEEN_STAFF role,
+**PENDING** until the admin approves it at `POST /admin/staff/{user_id}/approve`). The one admin can't register; it is seeded.
 To change someone's role, update their `role_id` in the `users` table
 (1 STUDENT, 2 FACULTY, 3 CANTEEN_STAFF, 4 ADMIN).
 
@@ -150,7 +151,7 @@ To change someone's role, update their `role_id` in the `users` table
    |---|---|---|
    | Student | `POST /auth/student/register` | `POST /auth/student/login` |
    | Faculty | `POST /auth/faculty/register` | `POST /auth/faculty/login` |
-   | Staff | – (seeded / assigned) | `POST /auth/login` |
+   | Canteen staff | `POST /auth/staff/register` (then admin approval) | `POST /auth/staff/login` |
    | Main canteen admin | – (seeded) | `POST /auth/admin/login` |
 
    Using the wrong login (e.g. a faculty account on the student login) returns **403**
@@ -170,6 +171,8 @@ In Swagger, click **Authorize** and paste the token.
 | POST | `/auth/faculty/register` | – | Create a FACULTY account (same fields) |
 | POST | `/auth/student/login` | – | Student login (Institute ID + password); returns JWT and role. Other account types get 403 |
 | POST | `/auth/faculty/login` | – | Faculty login; other account types get 403 |
+| POST | `/auth/staff/register` | – | Create a CANTEEN_STAFF account (same fields). It is PENDING, and login returns 403 "waiting for admin approval" until the admin approves it |
+| POST | `/auth/staff/login` | – | Canteen staff login; other account types get 403 |
 | POST | `/auth/admin/login` | – | Main canteen admin login; other account types get 403 |
 | POST | `/auth/login` | – | Login for any account type (staff/admin use this) |
 | POST | `/auth/register` | – | *Deprecated*: same as `/auth/student/register` |
@@ -202,6 +205,11 @@ In Swagger, click **Authorize** and paste the token.
 | GET | `/admin/carts` | ADMIN | Every customer's current cart |
 | GET | `/admin/notifications` | ADMIN | Notifications sent to every user (`?user_id=3`) |
 | GET | `/admin/stock-alerts` | ADMIN | Every customer's "Notify me" request |
+| GET | `/admin/staff` | ADMIN | Staff accounts (`?status=PENDING` = waiting for approval) |
+| POST | `/admin/staff/{user_id}/approve` | ADMIN | Approve a pending staff account (or re-activate one) |
+| POST | `/admin/staff/{user_id}/deactivate` | ADMIN | Reject / block a staff account; their logins end immediately |
+| POST | `/admin/menu` | ADMIN | Add a food item: `name`, `price`, `category` (new categories are created), optional `description`, `food_type`, `ingredients`, `avg_cooking_time_minutes`, starting `quantity` |
+| DELETE | `/admin/menu/{food_id}` | ADMIN | Remove an item from the menu. Past orders still show it; it is taken out of carts (customers get an `ITEM_REMOVED` notification) |
 | GET | `/notifications` | User | My notifications + `unread_count` (`?unread_only=true`) |
 | POST | `/notifications/{id}/read` | User | Mark one as read |
 | POST | `/notifications/read-all` | User | Mark all as read |

@@ -77,7 +77,8 @@ def list_inventory(db: Session) -> List[StaffInventoryOut]:
     ordered = inventory_service.units_ordered_last_24h(db)
     popular = inventory_service.popular_food_ids(db)
     result = []
-    for food in db.scalars(select(FoodItem).order_by(FoodItem.category_id, FoodItem.name)).unique():
+    on_menu = select(FoodItem).where(FoodItem.removed_at.is_(None))
+    for food in db.scalars(on_menu.order_by(FoodItem.category_id, FoodItem.name)).unique():
         inv = food.inventory
         held, people = holds.get(food.id, (0, 0))
         result.append(

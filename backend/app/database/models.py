@@ -29,6 +29,8 @@ ALL_ROLES = [STUDENT, FACULTY, CANTEEN_STAFF, ADMIN]
 # Account status
 ACCOUNT_ACTIVE = "ACTIVE"
 ACCOUNT_INACTIVE = "INACTIVE"
+# Self-registered staff wait in this state until the admin approves them.
+ACCOUNT_PENDING = "PENDING"
 
 # Order status (only PLACED is used for Demo 1)
 ORDER_PLACED = "PLACED"
@@ -43,6 +45,7 @@ NOTIFY_BACK_IN_STOCK = "BACK_IN_STOCK"
 NOTIFY_CART_ITEM_SOLD_OUT = "CART_ITEM_SOLD_OUT"
 NOTIFY_CART_ITEM_LOW_STOCK = "CART_ITEM_LOW_STOCK"
 NOTIFY_ORDER_PLACED = "ORDER_PLACED"
+NOTIFY_ITEM_REMOVED = "ITEM_REMOVED"
 
 
 class Role(Base):
@@ -115,6 +118,8 @@ class FoodItem(Base):
     # Ingredient names only, e.g. ["Rice", "Onion"]; quantities are not tracked.
     ingredients: Mapped[Optional[List[str]]] = mapped_column(JSON)
     avg_cooking_time_minutes: Mapped[int] = mapped_column(Integer, nullable=False, server_default="10")
+    # Set when the admin removes the item. It is kept (not deleted) so past orders still show it.
+    removed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     category: Mapped[Category] = relationship(back_populates="food_items", lazy="joined")
     inventory: Mapped[Optional["Inventory"]] = relationship(

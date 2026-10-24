@@ -80,6 +80,7 @@ VIEWS = {
         FROM food_items f
         JOIN categories c ON c.id = f.category_id
         LEFT JOIN inventory i ON i.food_item_id = f.id
+        WHERE f.removed_at IS NULL
         ORDER BY c.id, f.food_type, f.name
     """,
 }
