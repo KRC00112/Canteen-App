@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import activity
 from app.config import JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
 from app.database.database import get_db
 from app.database.models import ACCOUNT_ACTIVE, User, UserSession
@@ -105,6 +106,7 @@ def get_current_session(
         raise _unauthorized("Session has ended. Please log in again")
 
     user = session.user
+    activity.set_user(user)
     if user.account_status != ACCOUNT_ACTIVE:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is not active")
 

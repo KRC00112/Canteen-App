@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import activity
+from app.admin.live import router as live_router
 from app.admin.router import router as admin_router
 from app.auth.router import router as auth_router
 from app.cart.router import router as cart_router
@@ -28,6 +30,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+activity.install(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -44,6 +47,7 @@ app.include_router(orders_router)
 app.include_router(staff_router)
 app.include_router(notifications_router)
 app.include_router(admin_router)
+app.include_router(live_router)
 
 
 @app.get("/", tags=["Health"])

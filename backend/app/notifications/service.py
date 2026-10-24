@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import activity
 from app.auth.security import as_utc, utcnow
 from app.database.models import (
     NOTIFY_BACK_IN_STOCK,
@@ -168,6 +169,7 @@ def add_alert(db: Session, user: User, food_id: int) -> StockAlertOut:
         alert = StockAlert(user_id=user.id, food_item_id=food_id)
         db.add(alert)
         db.commit()
+        activity.event(f"Notify me: {food.name} when it is back")
         db.refresh(alert)
     return _alert_out(alert)
 
@@ -178,5 +180,6 @@ def remove_alert(db: Session, user: User, food_id: int) -> None:
     )
     if alert is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
+    activity.event(f"Notify me cancelled: {alert.food_item.name}")
     db.delete(alert)
     db.commit()

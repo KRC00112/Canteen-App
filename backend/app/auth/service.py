@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import activity
 from app.auth.schemas import LoginRequest, RegisterRequest, TokenResponse
 from app.auth.security import (
     create_access_token,
@@ -57,6 +58,8 @@ def register(
     db.add(user)
     db.commit()
     db.refresh(user)
+    activity.set_user(user)
+    activity.event(f"Registered {ROLE_LABELS[role_name]} account {institute_id} ({user.account_status})")
     return user
 
 
@@ -70,9 +73,11 @@ def login(
     """portal=STUDENT / FACULTY / CANTEEN_STAFF / ADMIN only lets accounts with that role log in; None allows any role."""
     user = db.scalar(select(User).where(User.institute_id == data.institute_id.strip()))
     if user is None or not verify_password(data.password, user.password_hash):
+        activity.event(f"Login failed for Institute ID {data.institute_id.strip()}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Institute ID or password"
         )
+    activity.set_user(user)
     if user.account_status == ACCOUNT_PENDING:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -90,6 +95,7 @@ def login(
         )
 
     session = create_session(db, user, device, ip_address)
+    activity.event(f"Logged in from {(device or 'unknown device')[:40]}")
     return TokenResponse(
         access_token=create_access_token(user, session),
         role=user.role.name,
@@ -102,3 +108,4 @@ def login(
 def logout(db: Session, session: UserSession) -> None:
     session.logged_out_at = utcnow()
     db.commit()
+    activity.event("Logged out, session ended")

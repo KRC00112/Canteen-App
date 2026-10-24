@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app import activity
 from app.auth.security import as_utc, utcnow
 from app.cart.service import CartOut, to_cart_out
 from app.database.models import (
@@ -234,8 +235,10 @@ def _staff_out(db: Session, user_id: int) -> UserWithLoginStatus:
 
 def approve_staff(db: Session, user_id: int) -> UserWithLoginStatus:
     """Approve a pending staff account (or re-activate a deactivated one)."""
-    _get_staff(db, user_id).account_status = ACCOUNT_ACTIVE
+    user = _get_staff(db, user_id)
+    user.account_status = ACCOUNT_ACTIVE
     db.commit()
+    activity.event(f"Approved staff {user.username} ({user.institute_id})")
     return _staff_out(db, user_id)
 
 
@@ -248,6 +251,7 @@ def deactivate_staff(db: Session, user_id: int) -> UserWithLoginStatus:
         if s.logged_out_at is None:
             s.logged_out_at = now
     db.commit()
+    activity.event(f"Deactivated staff {user.username} ({user.institute_id}), logins ended")
     return _staff_out(db, user_id)
 
 
@@ -281,6 +285,7 @@ def create_food_item(db: Session, data: FoodItemCreate) -> FoodItemOut:
     db.flush()
     db.add(Inventory(food_item_id=food.id, quantity=data.quantity, availability=data.quantity > 0))
     db.commit()
+    activity.event(f"Menu: added {name} (Rs {data.price:g}, {category.name}, {data.food_type}, stock {data.quantity})")
     return menu_service.get_food_out(db, food.id)
 
 
@@ -302,3 +307,4 @@ def remove_food_item(db: Session, food_id: int) -> None:
         db.delete(ci)
     db.execute(delete(StockAlert).where(StockAlert.food_item_id == food_id))
     db.commit()
+    activity.event(f"Menu: removed {food.name}; taken out of {len(cart_lines)} cart(s)")

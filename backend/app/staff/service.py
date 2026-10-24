@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import activity
 from app.database.models import FoodItem, Order
 from app.inventory import service as inventory_service
 from app.menu import service as menu_service
@@ -100,10 +101,15 @@ def list_inventory(db: Session) -> List[StaffInventoryOut]:
 
 def update_inventory(db: Session, food_id: int, data: InventoryUpdate) -> StaffInventoryOut:
     inv = inventory_service.get_inventory(db, food_id, lock=True)
+    old_quantity = inv.quantity
     inventory_service.set_quantity(inv, data.quantity)
     if data.available is not None:
         inv.availability = data.available and inv.quantity > 0
     db.commit()
+    activity.event(
+        f"Stock: {inv.food_item.name} {old_quantity} -> {inv.quantity}"
+        + ("" if inv.availability else " (not available)")
+    )
     return next(i for i in list_inventory(db) if i.food_id == food_id)
 
 
@@ -115,4 +121,5 @@ def update_food_item(db: Session, food_id: int, data: FoodItemUpdate) -> FoodIte
     for field, value in changes.items():
         setattr(food, field, value)
     db.commit()
+    activity.event(f"Menu: edited {food.name} ({', '.join(changes) or 'no changes'})")
     return menu_service.get_food_out(db, food_id)

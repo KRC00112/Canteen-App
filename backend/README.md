@@ -239,6 +239,28 @@ Errors always look like `{ "detail": "..." }`, using these status codes:
 400 (empty cart), 401 (not logged in / bad credentials), 403 (wrong role),
 404 (not found), 409 (duplicate / out of stock), 422 (invalid input).
 
+## Live activity (demo / debugging)
+
+Every API call is logged as one readable line: time (IST), method, path, status, duration,
+who called it, and what happened. Passwords, tokens and request bodies are never logged.
+
+```
+12:07:53  POST   /orders                            201    15ms  umar (STUDENT)  Order ORD-20261024-0001 placed: Rs 210.00, ready in ~20 min; Veg Biryani x2 (stock 25->23), Masala Dosa x1 (stock 30->29)
+12:07:53  POST   /auth/staff/login                  403    24ms  cook1 (CANTEEN_STAFF)  Your staff account is waiting for admin approval
+```
+
+Three ways to watch it while the app is used:
+
+| Where | How |
+|---|---|
+| Terminal (VS Code) | `brew install render && render login` once, then `./live-logs.sh srv-xxxxxxxx` (service ID from the Render dashboard URL); later just `./live-logs.sh` |
+| Browser | `https://canteen-backend-xzko.onrender.com/admin/live`, log in with the admin account. Live table plus counters (logged in, users, orders today, pending staff) |
+| Render dashboard | Service → **Logs** |
+
+`GET /admin/live/feed?after=<id>` (ADMIN) returns the same entries as JSON. The live page keeps
+the last 500 calls in memory, so it starts empty after a restart or deploy.
+Health checks (`/`) and the live page's own polling are not logged.
+
 ## Browsing users in the database
 
 Read-only views are created automatically (PostgreSQL). In pgAdmin they're under
@@ -248,6 +270,7 @@ Read-only views are created automatically (PostgreSQL). In pgAdmin they're under
 |---|---|
 | `users_overview` | Every registered user and their login status: `is_logged_in`, `active_sessions`, `total_logins`, `last_login_at`, `last_seen_at` |
 | `logged_in_users` | Only the users logged in right now, one row per active login (device, IP, login time) |
+| `orders_overview` | Every order, newest first: customer, total, items (`Veg Biryani x2, ...`), placed / ready times |
 | `admin_account` | The one permanent main canteen admin account and its login status |
 | `menu_overview` | Every food item with category, `food_type` (VEG / NON_VEG), price, cooking time, ingredients and stock |
 
@@ -255,6 +278,7 @@ Read-only views are created automatically (PostgreSQL). In pgAdmin they're under
 SELECT * FROM users_overview;
 SELECT * FROM logged_in_users;
 SELECT * FROM admin_account;
+SELECT * FROM orders_overview;
 SELECT * FROM menu_overview;
 ```
 

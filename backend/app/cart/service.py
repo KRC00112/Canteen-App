@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import activity
 from app.auth.security import as_utc, utcnow
 from app.config import CART_HOLD_MINUTES
 from app.database.models import VEG, Cart, CartItem, User
@@ -151,6 +152,10 @@ def add_item(db: Session, user: User, data: AddCartItem) -> CartOut:
         )
     db.commit()
     db.refresh(cart)
+    activity.event(
+        f"Cart: {food.name} x{new_quantity}, stock held {CART_HOLD_MINUTES} min "
+        f"(stock {inv.quantity})"
+    )
     return to_cart_out(db, cart)
 
 
@@ -171,14 +176,17 @@ def update_item(db: Session, user: User, item_id: int, data: UpdateCartItem) -> 
     hold_active = bool(item.reserved_until and as_utc(item.reserved_until) > utcnow())
     if data.quantity > item.quantity or not hold_active:
         inventory_service.ensure_can_hold(db, inv, user.id, data.quantity, item.food_item.name)
+    old_quantity = item.quantity
     item.quantity = data.quantity
     item.reserved_until = inventory_service.hold_expiry()
     db.commit()
+    activity.event(f"Cart: {item.food_item.name} x{old_quantity} -> x{data.quantity}, hold renewed")
     return get_cart(db, user)
 
 
 def remove_item(db: Session, user: User, item_id: int) -> CartOut:
     item = _get_user_cart_item(db, user, item_id)
+    activity.event(f"Cart: removed {item.food_item.name}, stock released")
     db.delete(item)
     db.commit()
     db.expire_all()
@@ -187,6 +195,7 @@ def remove_item(db: Session, user: User, item_id: int) -> CartOut:
 
 def clear_cart(db: Session, user: User) -> CartOut:
     cart = get_or_create_cart(db, user)
+    activity.event(f"Cart cleared ({len(cart.items)} item(s) released)")
     cart.items.clear()
     db.commit()
     return to_cart_out(db, cart)

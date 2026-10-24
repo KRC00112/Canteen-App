@@ -65,6 +65,26 @@ VIEWS = {
         WHERE r.name = 'ADMIN'
         GROUP BY u.id, r.name
     """,
+    # Every order, newest first, with the customer and what they ordered.
+    "orders_overview": """
+        SELECT
+            o.order_id,
+            u.institute_id,
+            u.username                                   AS customer,
+            r.name                                       AS role,
+            o.status,
+            o.total_amount,
+            STRING_AGG(f.name || ' x' || oi.quantity, ', ' ORDER BY oi.id) AS items,
+            o.created_at                                 AS placed_at,
+            o.estimated_ready_at
+        FROM orders o
+        JOIN users u ON u.id = o.user_id
+        JOIN roles r ON r.id = u.role_id
+        JOIN order_items oi ON oi.order_id = o.id
+        JOIN food_items f ON f.id = oi.food_item_id
+        GROUP BY o.id, u.id, r.name
+        ORDER BY o.created_at DESC
+    """,
     # Every food item with its category, Veg / Non-Veg type and live stock.
     "menu_overview": """
         SELECT
