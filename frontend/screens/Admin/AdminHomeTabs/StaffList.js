@@ -35,10 +35,6 @@ export default function StaffList({route}){
     return(
         <SafeAreaView style={home.container} edges={['top', 'left', 'right']}>
             <View style={styles.defaultView}>
-                <View style={styles.addNewCard}>
-                    <Ionicons name="add-circle-outline" size={28} color="black" />
-                    <Text>Add New Staff Member</Text>
-                </View>
                 <ScrollView>
                     {staffList?.map(member=>{
                         return(

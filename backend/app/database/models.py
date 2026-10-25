@@ -182,8 +182,6 @@ class Order(Base):
     items: Mapped[List["OrderItem"]] = relationship(
         back_populates="order", cascade="all, delete-orphan", order_by="OrderItem.id"
     )
-
-
 class OrderItem(Base):
     __tablename__ = "order_items"
 

@@ -2,7 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AdminHomeTabs from './AdminHomeTabs/AdminHomeTabs';
-import FoodItems from './FoodItems'
+import FoodListTab from './FoodListTab';
 
 const Tab = createBottomTabNavigator();
 
@@ -43,7 +43,7 @@ export default function AdminTabs({ route }) {
 
        <Tab.Screen
         name="Food List"
-        component={FoodItems}
+        component={FoodListTab}
         initialParams={{ userData }}
         options={{ tabBarLabel: 'Food List' }}
       />

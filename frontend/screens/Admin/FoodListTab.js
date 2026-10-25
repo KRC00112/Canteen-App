@@ -15,23 +15,21 @@ export default function FoodItems({route}){
     const token = loggedInUserData?.access_token;
     const [foodList, setFoodList]=useState();
 
-    useEffect(() => {
-        async function getFoodList() {
-            
-            const response=await fetch('https://canteen-backend-xzko.onrender.com/admin/users?role=CANTEEN_STAFF',{
-                headers:{
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            const data =await response.json();
-            setFoodList(data);
-            
+       useEffect(()=>{
+        async function getFoodList(){
+            try{
+                const response = await fetch(`https://canteen-backend-xzko.onrender.com/menu`);
+                const data = await response.json();
+                setFoodList(data);
+
+            }catch(error){
+                console.log(error);
+            }
         }
-
         getFoodList();
+    },[]);
 
-    },[token]);
-
+    
     return(
         <SafeAreaView style={home.container} edges={['top', 'left', 'right']}>
             <View style={styles.defaultView}>
