@@ -24,7 +24,7 @@ from app.database.models import (
     User,
 )
 from app.inventory import service as inventory_service
-from app.menu import service as menu_service
+from app.items import service as items_service
 
 
 # ---------- Schemas ----------
@@ -156,7 +156,7 @@ def list_alerts(db: Session, user: User) -> List[StockAlertOut]:
 
 
 def add_alert(db: Session, user: User, food_id: int) -> StockAlertOut:
-    food = menu_service.get_food_item(db, food_id)
+    food = items_service.get_food_item(db, food_id)
     if inventory_service.stock_for_user(db, food.inventory, user.id).available:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

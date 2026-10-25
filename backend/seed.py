@@ -1,4 +1,4 @@
-"""Seed the database with roles, a staff account, an admin account and menu data.
+"""Seed the database with roles, a staff account, an admin account and food items.
 
 Safe to run multiple times: existing rows are left unchanged.
 
@@ -33,7 +33,7 @@ from app.database.models import (
 )
 
 # (name, description, category, price, quantity, food type, ingredients, avg cooking minutes)
-MENU = [
+ITEMS = [
     ("Veg Biryani", "Fragrant basmati rice cooked with vegetables and spices", "Meals", "80", 25,
      VEG, ["Basmati rice", "Mixed vegetables", "Onion", "Curd", "Biryani spices"], 20),
     ("Masala Dosa", "Crispy dosa with potato masala, chutney and sambar", "South Indian", "50", 30,
@@ -92,7 +92,7 @@ def seed():
             f"ON users (role_id) WHERE role_id = {admin_role_id}"
         ))
 
-        for name, description, category, price, quantity, food_type, ingredients, cook_minutes in MENU:
+        for name, description, category, price, quantity, food_type, ingredients, cook_minutes in ITEMS:
             cat = get_or_create(db, Category, name=category)
             details = {
                 "food_type": food_type,

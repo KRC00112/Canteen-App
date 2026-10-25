@@ -196,7 +196,7 @@ class OrderItem(Base):
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
     food_item_id: Mapped[int] = mapped_column(ForeignKey("food_items.id"), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
-    # Unit price at the time of ordering (menu prices may change later).
+    # Unit price at the time of ordering (item prices may change later).
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
 
     order: Mapped[Order] = relationship(back_populates="items")

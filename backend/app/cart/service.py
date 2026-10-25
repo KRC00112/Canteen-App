@@ -11,7 +11,7 @@ from app.auth.security import as_utc, utcnow
 from app.config import CART_HOLD_MINUTES
 from app.database.models import VEG, Cart, CartItem, User
 from app.inventory import service as inventory_service
-from app.menu import service as menu_service
+from app.items import service as items_service
 
 
 # ---------- Schemas ----------
@@ -129,7 +129,7 @@ def get_cart(db: Session, user: User) -> CartOut:
 
 
 def add_item(db: Session, user: User, data: AddCartItem) -> CartOut:
-    food = menu_service.get_food_item(db, data.food_id)
+    food = items_service.get_food_item(db, data.food_id)
     cart = get_or_create_cart(db, user)
 
     existing = next((ci for ci in cart.items if ci.food_item_id == food.id), None)

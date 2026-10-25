@@ -2,7 +2,7 @@
 
 CS612 Group 4 — SOA backend built with **FastAPI + PostgreSQL + SQLAlchemy + JWT**.
 
-Demo 1 scope: authentication with role-based access, profile, menu, inventory, cart,
+Demo 1 scope: authentication with role-based access, profile, food items, inventory, cart,
 placing a pre-order (with an order ID) and an incoming-orders list for staff.
 
 ## Project structure
@@ -14,13 +14,13 @@ app/
   database/          Engine/session, models, add-column migrations, DB views
   auth/              Register, login, JWT, password hashing, role checks
   users/             Profile
-  menu/              Menu, categories, search/filter (Veg/Non-Veg, price)
+  items/             Food items, categories, search/filter (Veg/Non-Veg, price)
   inventory/         Stock rules: cart holds, low-stock limits, stock status
   cart/              Cart and cart items
   orders/            Place an order, order history, order details
   staff/             Staff-only incoming orders, inventory and food item editing
   notifications/     In-app notifications and "Notify me" stock alerts
-seed.py              Seeds roles, staff account, menu
+seed.py              Seeds roles, staff and admin accounts, food items
 ```
 
 ## Run locally
@@ -73,7 +73,7 @@ uses free plans only.
    - `DATABASE_URL`: paste the Neon connection string
    - `SEED_STAFF_PASSWORD`: e.g. `Staff@123`
 
-   On every start, the service creates the tables and seeds the menu and staff account.
+   On every start, the service creates the tables and seeds the food items, staff and admin accounts.
 3. **UptimeRobot:** add an **HTTP(s)** monitor for `https://<name>.onrender.com/` with a
    5-minute interval.
 4. Share with the team:
@@ -128,6 +128,17 @@ cp .env.example .env
 docker compose up --build
 ```
 
+## Who manages what
+
+| | Admin | Canteen staff |
+|---|---|---|
+| Food items: create, edit, price, remove (`/admin/items`) | ✅ | – |
+| Stock / restock (`PUT /staff/inventory`) | – | ✅ |
+| Customers' carts (`GET /staff/carts`) | – | ✅ |
+| Incoming orders (`GET /staff/orders`) | ✅ | ✅ |
+| Approve / deactivate staff (`/admin/staff`) | ✅ | – |
+| All users, customer details, orders, logins (`/admin/*`) | ✅ | – |
+
 ## Seed data
 
 | What | Value |
@@ -135,7 +146,7 @@ docker compose up --build
 | Roles | STUDENT, FACULTY, CANTEEN_STAFF, ADMIN |
 | Staff account | Institute ID `STAFF001` / `Staff@123` (more staff register at `/auth/staff/register` and need admin approval) |
 | Admin account | Institute ID `ADMIN001` / `Admin@123`: the one permanent main canteen admin (set `SEED_ADMIN_PASSWORD` to change). No registration; a unique index (`uq_users_single_admin`) stops the database from ever holding a second ADMIN |
-| Menu | Veg Biryani ₹80 (25), Masala Dosa ₹50 (30), Chicken Roll ₹70 (20, **Non-Veg**), Samosa ₹20 (50), Tea ₹15 (100), Coffee ₹25 (50). All others are Veg; each has ingredients and an average cooking time |
+| Food items | Veg Biryani ₹80 (25), Masala Dosa ₹50 (30), Chicken Roll ₹70 (20, **Non-Veg**), Samosa ₹20 (50), Tea ₹15 (100), Coffee ₹25 (50). All others are Veg; each has ingredients and an average cooking time |
 
 Students register via `/auth/student/register` (STUDENT role) and faculty via
 `/auth/faculty/register` (FACULTY role) and staff via `/auth/staff/register` (CANTEEN_STAFF role,
@@ -181,9 +192,9 @@ In Swagger, click **Authorize** and paste the token.
 | GET | `/users` | CANTEEN_STAFF / ADMIN | All registered users with login status (`is_logged_in`, `active_sessions`, `last_login_at`, ...); filter with `?role=STUDENT` / `FACULTY` / ... |
 | GET | `/users/logged-in` | CANTEEN_STAFF / ADMIN | All currently logged-in users and their sessions |
 | GET | `/users/me` | User | Profile |
-| GET | `/menu` | – (token optional) | Menu; query params: `search`, `category_id`, `food_type` (`VEG` / `NON_VEG`), `min_price`, `max_price`, `available_only` |
-| GET | `/menu/categories` | – | Categories, each with the food types it contains |
-| GET | `/menu/{food_id}` | – (token optional) | One food item |
+| GET | `/items` | – (token optional) | Food items; query params: `search`, `category_id`, `food_type` (`VEG` / `NON_VEG`), `min_price`, `max_price`, `available_only` |
+| GET | `/items/categories` | – | Categories, each with the food types it contains |
+| GET | `/items/{food_id}` | – (token optional) | One food item. (`/menu`, `/menu/categories` and `/menu/{food_id}` still work for older app builds, but are hidden from the docs) |
 | GET | `/inventory/{food_id}` | – (token optional) | Availability + stock status (no exact count) |
 | GET | `/cart` | User | Cart with subtotal/total |
 | POST | `/cart/items` | User | Add item `{food_id, quantity}` |
@@ -195,21 +206,21 @@ In Swagger, click **Authorize** and paste the token.
 | GET | `/orders/{order_id}` | User | Order details (e.g. `ORD-20261010-0001`) |
 | GET | `/staff/orders` | CANTEEN_STAFF / ADMIN | Incoming orders (`?status=PLACED`) |
 | GET | `/staff/inventory` | CANTEEN_STAFF / ADMIN | Exact stock, units held in carts, units ordered in the last 24 h |
-| PUT | `/staff/inventory/{food_id}` | CANTEEN_STAFF / ADMIN | Set stock `{quantity, available?}` (restock) |
-| PATCH | `/staff/menu/{food_id}` | CANTEEN_STAFF / ADMIN | Edit `food_type`, `ingredients`, `avg_cooking_time_minutes`, `price`, `description` |
+| PUT | `/staff/inventory/{food_id}` | CANTEEN_STAFF | Set stock `{quantity, available?}` (restock). Staff only |
+| GET | `/staff/carts` | CANTEEN_STAFF | Every customer's current cart, with stock holds. Staff only |
 | GET | `/admin/users` | ADMIN | Every account with login status (`?role=STUDENT` / ...) |
-| GET | `/admin/users/{user_id}` | ADMIN | Full customer details: profile, login history, cart, orders, total spent, notifications, stock alerts |
+| GET | `/admin/users/{user_id}` | ADMIN | Full customer details: profile, login history, orders, total spent, notifications, stock alerts |
 | GET | `/admin/orders` | ADMIN | Every order (`?status=PLACED`, `?user_id=3`) |
 | GET | `/admin/orders/{order_id}` | ADMIN | Any order with the customer who placed it |
 | GET | `/admin/sessions` | ADMIN | Login history of every account: device, IP, login/logout times (`?active_only=true`) |
-| GET | `/admin/carts` | ADMIN | Every customer's current cart |
 | GET | `/admin/notifications` | ADMIN | Notifications sent to every user (`?user_id=3`) |
 | GET | `/admin/stock-alerts` | ADMIN | Every customer's "Notify me" request |
 | GET | `/admin/staff` | ADMIN | Staff accounts (`?status=PENDING` = waiting for approval) |
 | POST | `/admin/staff/{user_id}/approve` | ADMIN | Approve a pending staff account (or re-activate one) |
 | POST | `/admin/staff/{user_id}/deactivate` | ADMIN | Reject / block a staff account; their logins end immediately |
-| POST | `/admin/menu` | ADMIN | Add a food item: `name`, `price`, `category` (new categories are created), optional `description`, `food_type`, `ingredients`, `avg_cooking_time_minutes`, starting `quantity` |
-| DELETE | `/admin/menu/{food_id}` | ADMIN | Remove an item from the menu. Past orders still show it; it is taken out of carts (customers get an `ITEM_REMOVED` notification) |
+| POST | `/admin/items` | ADMIN | Add a food item: `name`, `price`, `category` (new categories are created), optional `description`, `food_type`, `ingredients`, `avg_cooking_time_minutes`. It starts with 0 stock until staff restock it |
+| PATCH | `/admin/items/{food_id}` | ADMIN | Edit `name`, `price`, `description`, `category`, `food_type`, `ingredients`, `avg_cooking_time_minutes` (only the fields sent). Past orders keep their price |
+| DELETE | `/admin/items/{food_id}` | ADMIN | Remove an item. Past orders still show it; it is taken out of carts (customers get an `ITEM_REMOVED` notification) |
 | GET | `/notifications` | User | My notifications + `unread_count` (`?unread_only=true`) |
 | POST | `/notifications/{id}/read` | User | Mark one as read |
 | POST | `/notifications/read-all` | User | Mark all as read |
@@ -272,14 +283,14 @@ Read-only views are created automatically (PostgreSQL). In pgAdmin they're under
 | `logged_in_users` | Only the users logged in right now, one row per active login (device, IP, login time) |
 | `orders_overview` | Every order, newest first: customer, total, items (`Veg Biryani x2, ...`), placed / ready times |
 | `admin_account` | The one permanent main canteen admin account and its login status |
-| `menu_overview` | Every food item with category, `food_type` (VEG / NON_VEG), price, cooking time, ingredients and stock |
+| `items_overview` | Every food item with category, `food_type` (VEG / NON_VEG), price, cooking time, ingredients and stock |
 
 ```sql
 SELECT * FROM users_overview;
 SELECT * FROM logged_in_users;
 SELECT * FROM admin_account;
 SELECT * FROM orders_overview;
-SELECT * FROM menu_overview;
+SELECT * FROM items_overview;
 ```
 
 New columns on existing tables are added automatically on start (`app/database/migrations.py`),
@@ -289,9 +300,9 @@ so the Neon database upgrades itself on the next deploy.
 
 - Every food item has `food_type`: `VEG` or `NON_VEG` (also `is_veg: true/false`). The database
   enforces it (NOT NULL + CHECK constraint), so an item can never be left unclassified.
-  Use it for the Veg / Non-Veg badge and the "Select item type" filter (`/menu?food_type=VEG`).
+  Use it for the Veg / Non-Veg badge and the "Select item type" filter (`/items?food_type=VEG`).
 - `ingredients` is a list of names only, e.g. `["Chicken", "Paratha", "Onion"]`. Quantities are not tracked.
-- `avg_cooking_time_minutes` is on every menu item and cart item. The cart returns
+- `avg_cooking_time_minutes` is on every food item and cart item. The cart returns
   `estimated_ready_minutes`, and an order returns `estimated_ready_at` / `estimated_ready_minutes`.
   Items are cooked in parallel, so the estimate is the slowest item's cooking time.
 
@@ -306,7 +317,7 @@ and all but one person fail at checkout. Instead:
    stock row (`SELECT … FOR UPDATE`) means two people can't both hold the last portion.
 2. **Fair-share limit.** At or below `LOW_STOCK_THRESHOLD` (default 5) portions, each customer
    can hold at most `LOW_STOCK_MAX_PER_CUSTOMER` (default 2), so one person can't take all of it.
-3. **Advance notice on the menu.** Every item has `stock_status` + a ready-to-show `stock_message`:
+3. **Advance notice on the items list.** Every item has `stock_status` + a ready-to-show `stock_message`:
 
    | `stock_status` | Meaning | Suggested UI |
    |---|---|---|
@@ -331,11 +342,11 @@ Settings (env vars): `CART_HOLD_MINUTES`, `LOW_STOCK_THRESHOLD`, `LOW_STOCK_MAX_
 
 ### Frontend (Android) changes to make
 
-- **Menu card:** Veg/Non-Veg badge from `food_type` (green ● Veg / red ▲ Non-Veg); "⏱ ~N min" from
+- **Item card:** Veg/Non-Veg badge from `food_type` (green ● Veg / red ▲ Non-Veg); "⏱ ~N min" from
   `avg_cooking_time_minutes`; a tag with `stock_message` when `stock_status` isn't `IN_STOCK`;
   disable "+1" when `in cart >= max_order_quantity`; a **Notify me** button instead of "+1" when
   `available` is false (`POST /notifications/stock-alerts`; the button shows as on when `notify_me` is true).
-  Send the token on `GET /menu` too, so the customer's own held items don't count as reserved.
+  Send the token on `GET /items` too, so the customer's own held items don't count as reserved.
 - **View details:** show `ingredients` as a list and `description`.
 - **Filters panel:** item type → `food_type`; category → `category_id`; price limit → `min_price` / `max_price`.
 - **Cart:** under each item show `message` (red when `available` is false); show "Ready in ~N min"

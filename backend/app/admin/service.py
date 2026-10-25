@@ -1,5 +1,7 @@
-"""The single permanent main canteen admin: read access to every entity, staff approval
-and deciding which items the menu has."""
+"""The single permanent main canteen admin: read access to customers, orders and logins,
+staff approval, and owning the food items (create, edit, price, remove).
+
+Stock and customer carts belong to the canteen staff (/staff), not the admin."""
 from datetime import datetime
 from typing import List, Optional
 
@@ -10,13 +12,11 @@ from sqlalchemy.orm import Session
 
 from app import activity
 from app.auth.security import as_utc, utcnow
-from app.cart.service import CartOut, to_cart_out
 from app.database.models import (
     ACCOUNT_ACTIVE,
     ACCOUNT_INACTIVE,
     CANTEEN_STAFF,
     NOTIFY_ITEM_REMOVED,
-    Cart,
     CartItem,
     Category,
     FoodItem,
@@ -27,8 +27,8 @@ from app.database.models import (
     User,
     UserSession,
 )
-from app.menu import service as menu_service
-from app.menu.schemas import FoodItemOut, FoodType
+from app.items import service as items_service
+from app.items.schemas import FoodItemOut, FoodType
 from app.notifications.service import NotificationOut, StockAlertOut, to_out
 from app.orders.schemas import OrderOut
 from app.orders.service import to_order_out
@@ -54,13 +54,6 @@ class AdminSessionOut(BaseModel):
     active: bool
 
 
-class AdminCartOut(BaseModel):
-    user_id: int
-    institute_id: str
-    username: str
-    cart: CartOut
-
-
 class AdminNotificationOut(NotificationOut):
     user_id: int
     username: str
@@ -80,15 +73,27 @@ class FoodItemCreate(BaseModel):
     food_type: FoodType = "VEG"
     ingredients: List[str] = Field(default_factory=list, examples=[["Paneer", "Wrap", "Onion"]])
     avg_cooking_time_minutes: int = Field(10, ge=1, le=180)
-    # Starting stock; staff can restock later with PUT /staff/inventory/{food_id}.
-    quantity: int = Field(0, ge=0, le=10000)
+    # Stock is managed by staff: a new item starts at 0 (not available) until staff restock it
+    # with PUT /staff/inventory/{food_id}.
+
+
+class FoodItemUpdate(BaseModel):
+    """Only the fields sent are changed."""
+
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    price: Optional[float] = Field(None, gt=0)
+    description: Optional[str] = None
+    category: Optional[str] = Field(None, min_length=1, max_length=50)
+    food_type: Optional[FoodType] = None
+    ingredients: Optional[List[str]] = None
+    avg_cooking_time_minutes: Optional[int] = Field(None, ge=1, le=180)
 
 
 class AdminUserDetail(UserWithLoginStatus):
-    """Everything stored about one user (customer details for students and faculty)."""
+    """Everything stored about one user (customer details for students and faculty).
+    Their current cart is visible to staff at GET /staff/carts."""
 
     sessions: List[AdminSessionOut]
-    cart: Optional[CartOut]
     orders: List[OrderOut]
     total_spent: float
     notifications: List[NotificationOut]
@@ -131,7 +136,6 @@ def get_user_detail(db: Session, user_id: int) -> AdminUserDetail:
     orders = db.scalars(
         select(Order).where(Order.user_id == user_id).order_by(Order.created_at.desc(), Order.id.desc())
     ).unique().all()
-    cart = db.scalar(select(Cart).where(Cart.user_id == user_id))
     notifications = db.scalars(
         select(Notification).where(Notification.user_id == user_id).order_by(Notification.id.desc())
     )
@@ -139,7 +143,6 @@ def get_user_detail(db: Session, user_id: int) -> AdminUserDetail:
     return AdminUserDetail(
         **summary.model_dump(),
         sessions=[_session_out(s) for s in sessions],
-        cart=to_cart_out(db, cart) if cart is not None else None,
         orders=[to_order_out(o) for o in orders],
         total_spent=round(float(sum(o.total_amount for o in orders)), 2),
         notifications=[to_out(n) for n in notifications],
@@ -172,20 +175,6 @@ def list_sessions(db: Session, active_only: bool = False) -> List[AdminSessionOu
     if active_only:
         stmt = stmt.where(UserSession.logged_out_at.is_(None), UserSession.expires_at > utcnow())
     return [_session_out(s) for s in db.scalars(stmt).unique()]
-
-
-def list_carts(db: Session) -> List[AdminCartOut]:
-    """Every cart that has at least one item."""
-    return [
-        AdminCartOut(
-            user_id=cart.user_id,
-            institute_id=cart.user.institute_id,
-            username=cart.user.username,
-            cart=to_cart_out(db, cart),
-        )
-        for cart in db.scalars(select(Cart).order_by(Cart.id))
-        if cart.items
-    ]
 
 
 def list_notifications(db: Session, user_id: Optional[int] = None) -> List[AdminNotificationOut]:
@@ -255,23 +244,30 @@ def deactivate_staff(db: Session, user_id: int) -> UserWithLoginStatus:
     return _staff_out(db, user_id)
 
 
-# ---------- Menu management ----------
+# ---------- Food items ----------
+
+def _check_name_free(db: Session, name: str, except_id: Optional[int] = None) -> None:
+    stmt = select(FoodItem).where(func.lower(FoodItem.name) == name.lower(), FoodItem.removed_at.is_(None))
+    if except_id is not None:
+        stmt = stmt.where(FoodItem.id != except_id)
+    if db.scalar(stmt) is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"An item named {name} already exists")
+
+
+def _get_or_create_category(db: Session, name: str) -> Category:
+    name = name.strip()
+    category = db.scalar(select(Category).where(func.lower(Category.name) == name.lower()))
+    if category is None:
+        category = Category(name=name)
+        db.add(category)
+        db.flush()
+    return category
+
 
 def create_food_item(db: Session, data: FoodItemCreate) -> FoodItemOut:
     name = data.name.strip()
-    duplicate = db.scalar(
-        select(FoodItem).where(func.lower(FoodItem.name) == name.lower(), FoodItem.removed_at.is_(None))
-    )
-    if duplicate is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"{name} is already on the menu")
-
-    category_name = data.category.strip()
-    category = db.scalar(select(Category).where(func.lower(Category.name) == category_name.lower()))
-    if category is None:
-        category = Category(name=category_name)
-        db.add(category)
-        db.flush()
-
+    _check_name_free(db, name)
+    category = _get_or_create_category(db, data.category)
     food = FoodItem(
         name=name,
         description=(data.description or "").strip() or None,
@@ -283,15 +279,44 @@ def create_food_item(db: Session, data: FoodItemCreate) -> FoodItemOut:
     )
     db.add(food)
     db.flush()
-    db.add(Inventory(food_item_id=food.id, quantity=data.quantity, availability=data.quantity > 0))
+    db.add(Inventory(food_item_id=food.id, quantity=0, availability=False))
     db.commit()
-    activity.event(f"Menu: added {name} (Rs {data.price:g}, {category.name}, {data.food_type}, stock {data.quantity})")
-    return menu_service.get_food_out(db, food.id)
+    activity.event(f"Items: added {name} (Rs {data.price:g}, {category.name}, {data.food_type}); stock 0 until staff restock")
+    return items_service.get_food_out(db, food.id)
+
+
+def update_food_item(db: Session, food_id: int, data: FoodItemUpdate) -> FoodItemOut:
+    food = items_service.get_food_item(db, food_id)
+    changes = data.model_dump(exclude_unset=True)
+    described = []
+    if changes.get("name") is not None:
+        changes["name"] = changes["name"].strip()
+        _check_name_free(db, changes["name"], except_id=food_id)
+    if changes.get("price") is not None and float(food.price) != changes["price"]:
+        described.append(f"price Rs {float(food.price):g} -> Rs {changes['price']:g}")
+    if changes.get("category") is not None:
+        food.category = _get_or_create_category(db, changes.pop("category"))
+        described.append("category")
+    else:
+        changes.pop("category", None)
+    if "ingredients" in changes:
+        changes["ingredients"] = [i.strip() for i in changes["ingredients"] or [] if i.strip()]
+    if "description" in changes:
+        changes["description"] = (changes["description"] or "").strip() or None
+    for field in ("name", "price", "food_type", "avg_cooking_time_minutes"):
+        if field in changes and changes[field] is None:
+            changes.pop(field)  # these columns can't be emptied
+    for field, value in changes.items():
+        setattr(food, field, value)
+    db.commit()
+    described += [f for f in changes if f != "price"]
+    activity.event(f"Items: edited {food.name} ({', '.join(described) or 'no changes'})")
+    return items_service.get_food_out(db, food_id)
 
 
 def remove_food_item(db: Session, food_id: int) -> None:
-    """Take an item off the menu. Past orders keep it; carts and "Notify me" requests drop it."""
-    food = menu_service.get_food_item(db, food_id)
+    """Remove an item. Past orders keep it; carts and "Notify me" requests drop it."""
+    food = items_service.get_food_item(db, food_id)
     food.removed_at = utcnow()
     if food.inventory is not None:
         food.inventory.availability = False
@@ -302,9 +327,9 @@ def remove_food_item(db: Session, food_id: int) -> None:
             user_id=ci.cart.user_id,
             food_item_id=food_id,
             type=NOTIFY_ITEM_REMOVED,
-            message=f"{food.name} is no longer on the menu and was removed from your cart",
+            message=f"{food.name} is no longer available and was removed from your cart",
         ))
         db.delete(ci)
     db.execute(delete(StockAlert).where(StockAlert.food_item_id == food_id))
     db.commit()
-    activity.event(f"Menu: removed {food.name}; taken out of {len(cart_lines)} cart(s)")
+    activity.event(f"Items: removed {food.name}; taken out of {len(cart_lines)} cart(s)")

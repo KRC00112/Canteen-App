@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.database.models import NON_VEG, VEG, Category, FoodItem, StockAlert, User
 from app.inventory import service as inventory_service
 from app.inventory.service import Stock
-from app.menu.schemas import CategoryOut, FoodItemOut
+from app.items.schemas import CategoryOut, FoodItemOut
 
 
 def to_food_out(item: FoodItem, stock: Stock, popular: bool = False, notify_me: bool = False) -> FoodItemOut:
@@ -37,7 +37,7 @@ def _alerted_food_ids(db: Session, user: Optional[User]) -> set:
     return set(db.scalars(select(StockAlert.food_item_id).where(StockAlert.user_id == user.id)))
 
 
-def list_menu(
+def list_items(
     db: Session,
     user: Optional[User] = None,
     search: Optional[str] = None,
@@ -95,8 +95,8 @@ def get_food_out(db: Session, food_id: int, user: Optional[User] = None) -> Food
 
 def list_categories(db: Session) -> List[CategoryOut]:
     types = {}
-    on_menu = select(FoodItem.category_id, FoodItem.food_type).where(FoodItem.removed_at.is_(None))
-    for category_id, food_type in db.execute(on_menu.distinct()):
+    listed = select(FoodItem.category_id, FoodItem.food_type).where(FoodItem.removed_at.is_(None))
+    for category_id, food_type in db.execute(listed.distinct()):
         types.setdefault(category_id, set()).add(food_type)
     return [
         CategoryOut(id=c.id, name=c.name, food_types=[t for t in (VEG, NON_VEG) if t in types.get(c.id, ())])

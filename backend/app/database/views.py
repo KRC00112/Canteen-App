@@ -1,4 +1,4 @@
-"""Read-only SQL views for browsing users and the menu in pgAdmin / the Neon console.
+"""Read-only SQL views for browsing users, orders and food items in pgAdmin / the Neon console.
 
 Views are computed live from the underlying tables, so they are never stale.
 """
@@ -86,7 +86,7 @@ VIEWS = {
         ORDER BY o.created_at DESC
     """,
     # Every food item with its category, Veg / Non-Veg type and live stock.
-    "menu_overview": """
+    "items_overview": """
         SELECT
             f.id                         AS food_id,
             f.name,
@@ -106,10 +106,16 @@ VIEWS = {
 }
 
 
+# Views that were renamed; dropped so the old name doesn't linger in the database.
+RETIRED_VIEWS = ["menu_overview"]
+
+
 def create_views(engine: Engine) -> None:
     if engine.dialect.name != "postgresql":
         return  # FILTER/now() syntax is PostgreSQL-specific
     with engine.begin() as conn:
+        for name in RETIRED_VIEWS:
+            conn.execute(text(f"DROP VIEW IF EXISTS {name}"))
         for name, query in VIEWS.items():
             conn.execute(text(f"DROP VIEW IF EXISTS {name}"))
             conn.execute(text(f"CREATE VIEW {name} AS {query}"))
