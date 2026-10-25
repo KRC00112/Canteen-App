@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import activity
 from app.auth.security import as_utc, utcnow
 from app.database.models import (
     NOTIFY_BACK_IN_STOCK,
@@ -23,14 +24,14 @@ from app.database.models import (
     User,
 )
 from app.inventory import service as inventory_service
-from app.menu import service as menu_service
+from app.items import service as items_service
 
 
 # ---------- Schemas ----------
 
 class NotificationOut(BaseModel):
     id: int
-    # BACK_IN_STOCK | CART_ITEM_SOLD_OUT | CART_ITEM_LOW_STOCK | ORDER_PLACED
+    # BACK_IN_STOCK | CART_ITEM_SOLD_OUT | CART_ITEM_LOW_STOCK | ORDER_PLACED | ITEM_REMOVED
     type: str
     message: str
     food_id: Optional[int]
@@ -155,7 +156,7 @@ def list_alerts(db: Session, user: User) -> List[StockAlertOut]:
 
 
 def add_alert(db: Session, user: User, food_id: int) -> StockAlertOut:
-    food = menu_service.get_food_item(db, food_id)
+    food = items_service.get_food_item(db, food_id)
     if inventory_service.stock_for_user(db, food.inventory, user.id).available:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -168,6 +169,7 @@ def add_alert(db: Session, user: User, food_id: int) -> StockAlertOut:
         alert = StockAlert(user_id=user.id, food_item_id=food_id)
         db.add(alert)
         db.commit()
+        activity.event(f"Notify me: {food.name} when it is back")
         db.refresh(alert)
     return _alert_out(alert)
 
@@ -178,5 +180,6 @@ def remove_alert(db: Session, user: User, food_id: int) -> None:
     )
     if alert is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
+    activity.event(f"Notify me cancelled: {alert.food_item.name}")
     db.delete(alert)
     db.commit()

@@ -5,10 +5,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.database.models import FoodItem, Order
+from app import activity
+from app.cart.service import CartOut, to_cart_out
+from app.database.models import Cart, FoodItem, Order
 from app.inventory import service as inventory_service
-from app.menu import service as menu_service
-from app.menu.schemas import FoodItemOut, FoodType
 from app.orders.schemas import OrderItemOut, order_item_out
 
 
@@ -42,7 +42,7 @@ def list_orders(db: Session, status: Optional[str] = None) -> List[StaffOrderOut
     ]
 
 
-# ---------- Inventory & menu management ----------
+# ---------- Inventory (stock) management ----------
 
 class StaffInventoryOut(BaseModel):
     food_id: int
@@ -64,20 +64,13 @@ class InventoryUpdate(BaseModel):
     available: Optional[bool] = None
 
 
-class FoodItemUpdate(BaseModel):
-    food_type: Optional[FoodType] = None
-    ingredients: Optional[List[str]] = None
-    avg_cooking_time_minutes: Optional[int] = Field(None, ge=1, le=180)
-    price: Optional[float] = Field(None, gt=0)
-    description: Optional[str] = None
-
-
 def list_inventory(db: Session) -> List[StaffInventoryOut]:
     holds = inventory_service.active_holds(db)
     ordered = inventory_service.units_ordered_last_24h(db)
     popular = inventory_service.popular_food_ids(db)
     result = []
-    for food in db.scalars(select(FoodItem).order_by(FoodItem.category_id, FoodItem.name)).unique():
+    listed = select(FoodItem).where(FoodItem.removed_at.is_(None))
+    for food in db.scalars(listed.order_by(FoodItem.category_id, FoodItem.name)).unique():
         inv = food.inventory
         held, people = holds.get(food.id, (0, 0))
         result.append(
@@ -99,19 +92,36 @@ def list_inventory(db: Session) -> List[StaffInventoryOut]:
 
 def update_inventory(db: Session, food_id: int, data: InventoryUpdate) -> StaffInventoryOut:
     inv = inventory_service.get_inventory(db, food_id, lock=True)
+    old_quantity = inv.quantity
     inventory_service.set_quantity(inv, data.quantity)
     if data.available is not None:
         inv.availability = data.available and inv.quantity > 0
     db.commit()
+    activity.event(
+        f"Stock: {inv.food_item.name} {old_quantity} -> {inv.quantity}"
+        + ("" if inv.availability else " (not available)")
+    )
     return next(i for i in list_inventory(db) if i.food_id == food_id)
 
 
-def update_food_item(db: Session, food_id: int, data: FoodItemUpdate) -> FoodItemOut:
-    food = menu_service.get_food_item(db, food_id)
-    changes = data.model_dump(exclude_unset=True)
-    if "ingredients" in changes:
-        changes["ingredients"] = [i.strip() for i in changes["ingredients"] or [] if i.strip()]
-    for field, value in changes.items():
-        setattr(food, field, value)
-    db.commit()
-    return menu_service.get_food_out(db, food_id)
+# ---------- Customer carts ----------
+
+class CustomerCartOut(BaseModel):
+    user_id: int
+    institute_id: str
+    username: str
+    cart: CartOut
+
+
+def list_carts(db: Session) -> List[CustomerCartOut]:
+    """Every customer cart that has at least one item, with its stock holds."""
+    return [
+        CustomerCartOut(
+            user_id=cart.user_id,
+            institute_id=cart.user.institute_id,
+            username=cart.user.username,
+            cart=to_cart_out(db, cart),
+        )
+        for cart in db.scalars(select(Cart).order_by(Cart.id))
+        if cart.items
+    ]

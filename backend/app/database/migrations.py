@@ -15,6 +15,7 @@ NEW_COLUMNS = [
     ("food_items", "avg_cooking_time_minutes", "NOT NULL DEFAULT 10"),
     ("cart_items", "reserved_until", ""),
     ("orders", "estimated_ready_at", ""),
+    ("food_items", "removed_at", ""),
 ]
 
 

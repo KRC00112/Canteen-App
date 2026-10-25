@@ -1,4 +1,4 @@
-"""Read-only SQL views for browsing users and the menu in pgAdmin / the Neon console.
+"""Read-only SQL views for browsing users, orders and food items in pgAdmin / the Neon console.
 
 Views are computed live from the underlying tables, so they are never stale.
 """
@@ -65,8 +65,28 @@ VIEWS = {
         WHERE r.name = 'ADMIN'
         GROUP BY u.id, r.name
     """,
+    # Every order, newest first, with the customer and what they ordered.
+    "orders_overview": """
+        SELECT
+            o.order_id,
+            u.institute_id,
+            u.username                                   AS customer,
+            r.name                                       AS role,
+            o.status,
+            o.total_amount,
+            STRING_AGG(f.name || ' x' || oi.quantity, ', ' ORDER BY oi.id) AS items,
+            o.created_at                                 AS placed_at,
+            o.estimated_ready_at
+        FROM orders o
+        JOIN users u ON u.id = o.user_id
+        JOIN roles r ON r.id = u.role_id
+        JOIN order_items oi ON oi.order_id = o.id
+        JOIN food_items f ON f.id = oi.food_item_id
+        GROUP BY o.id, u.id, r.name
+        ORDER BY o.created_at DESC
+    """,
     # Every food item with its category, Veg / Non-Veg type and live stock.
-    "menu_overview": """
+    "items_overview": """
         SELECT
             f.id                         AS food_id,
             f.name,
@@ -80,15 +100,22 @@ VIEWS = {
         FROM food_items f
         JOIN categories c ON c.id = f.category_id
         LEFT JOIN inventory i ON i.food_item_id = f.id
+        WHERE f.removed_at IS NULL
         ORDER BY c.id, f.food_type, f.name
     """,
 }
+
+
+# Views that were renamed; dropped so the old name doesn't linger in the database.
+RETIRED_VIEWS = ["menu_overview"]
 
 
 def create_views(engine: Engine) -> None:
     if engine.dialect.name != "postgresql":
         return  # FILTER/now() syntax is PostgreSQL-specific
     with engine.begin() as conn:
+        for name in RETIRED_VIEWS:
+            conn.execute(text(f"DROP VIEW IF EXISTS {name}"))
         for name, query in VIEWS.items():
             conn.execute(text(f"DROP VIEW IF EXISTS {name}"))
             conn.execute(text(f"CREATE VIEW {name} AS {query}"))

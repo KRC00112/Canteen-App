@@ -3,12 +3,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import activity
+from app.admin.live import router as live_router
 from app.admin.router import router as admin_router
 from app.auth.router import router as auth_router
 from app.cart.router import router as cart_router
 from app.database.database import init_db
 from app.inventory.router import router as inventory_router
-from app.menu.router import router as menu_router
+from app.items.router import legacy_router as items_legacy_router
+from app.items.router import router as items_router
 from app.notifications.router import router as notifications_router
 from app.orders.router import router as orders_router
 from app.staff.router import router as staff_router
@@ -28,6 +31,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+activity.install(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -37,13 +41,15 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(users_router)
-app.include_router(menu_router)
+app.include_router(items_router)
+app.include_router(items_legacy_router)
 app.include_router(inventory_router)
 app.include_router(cart_router)
 app.include_router(orders_router)
 app.include_router(staff_router)
 app.include_router(notifications_router)
 app.include_router(admin_router)
+app.include_router(live_router)
 
 
 @app.get("/", tags=["Health"])

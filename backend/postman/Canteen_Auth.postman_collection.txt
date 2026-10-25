@@ -726,6 +726,56 @@
               }
             }
           ]
+        },
+        {
+          "name": "Admin login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/admin/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "admin",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"institute_id\": \"ADMIN001\",\n  \"password\": \"Admin@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Admin login OK -> 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"role is CANTEEN_STAFF\", () => pm.expect(j.role).to.eql(\"CANTEEN_STAFF\"));",
+                  "pm.collectionVariables.set(\"admin_token\", j.access_token);"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1147,20 +1197,20 @@
       ]
     },
     {
-      "name": "6. Menu",
+      "name": "6. Items",
       "item": [
         {
-          "name": "Get full menu",
+          "name": "Get all items",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/menu",
+              "raw": "{{base_url}}/items",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "menu"
+                "items"
               ]
             },
             "description": "",
@@ -1174,7 +1224,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Menu -> 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Items -> 200\", () => pm.response.to.have.status(200));",
                   "pm.test(\"items have food_type, ingredients, cooking time, stock status\", () => { const i = pm.response.json()[0]; [\"food_type\",\"is_veg\",\"ingredients\",\"avg_cooking_time_minutes\",\"stock_status\",\"stock_message\",\"max_order_quantity\"].forEach(k => pm.expect(i).to.have.property(k)); });"
                 ]
               }
@@ -1182,17 +1232,17 @@
           ]
         },
         {
-          "name": "Search menu",
+          "name": "Search items",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/menu?search=dosa",
+              "raw": "{{base_url}}/items?search=dosa",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "menu"
+                "items"
               ],
               "query": [
                 {
@@ -1224,12 +1274,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/menu?category_id=4",
+              "raw": "{{base_url}}/items?category_id=4",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "menu"
+                "items"
               ],
               "query": [
                 {
@@ -1261,12 +1311,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/menu?available_only=true",
+              "raw": "{{base_url}}/items?available_only=true",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "menu"
+                "items"
               ],
               "query": [
                 {
@@ -1298,12 +1348,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/menu?food_type=NON_VEG",
+              "raw": "{{base_url}}/items?food_type=NON_VEG",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "menu"
+                "items"
               ],
               "query": [
                 {
@@ -1336,12 +1386,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/menu?min_price=20&max_price=60",
+              "raw": "{{base_url}}/items?min_price=20&max_price=60",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "menu"
+                "items"
               ],
               "query": [
                 {
@@ -1378,12 +1428,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/menu/categories",
+              "raw": "{{base_url}}/items/categories",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "menu",
+                "items",
                 "categories"
               ]
             },
@@ -1410,12 +1460,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/menu/1",
+              "raw": "{{base_url}}/items/1",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "menu",
+                "items",
                 "1"
               ]
             },
@@ -1442,12 +1492,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/menu/999",
+              "raw": "{{base_url}}/items/999",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "menu",
+                "items",
                 "999"
               ]
             },
@@ -2412,7 +2462,7 @@
           ]
         },
         {
-          "name": "Staff edit food item (cooking time, type, ingredients)",
+          "name": "Admin edit food item (cooking time, type, ingredients)",
           "request": {
             "method": "PATCH",
             "header": [
@@ -2422,13 +2472,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/staff/menu/3",
+              "raw": "{{base_url}}/admin/items/3",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "staff",
-                "menu",
+                "admin",
+                "items",
                 "3"
               ]
             },
@@ -2438,7 +2488,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{staff_token}}",
+                  "value": "{{admin_token}}",
                   "type": "string"
                 }
               ]
@@ -2461,7 +2511,7 @@
           ]
         },
         {
-          "name": "Invalid food type (422)",
+          "name": "Staff can't edit food items (403)",
           "request": {
             "method": "PATCH",
             "header": [
@@ -2471,13 +2521,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/staff/menu/3",
+              "raw": "{{base_url}}/admin/items/3",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "staff",
-                "menu",
+                "admin",
+                "items",
                 "3"
               ]
             },
@@ -2488,6 +2538,55 @@
                 {
                   "key": "token",
                   "value": "{{staff_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Staff edit item -> 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid food type (422)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/items/3",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "items",
+                "3"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
                   "type": "string"
                 }
               ]
@@ -2867,6 +2966,10 @@
     },
     {
       "key": "order_id",
+      "value": ""
+    },
+    {
+      "key": "admin_token",
       "value": ""
     }
   ]

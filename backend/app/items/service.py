@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.database.models import NON_VEG, VEG, Category, FoodItem, StockAlert, User
 from app.inventory import service as inventory_service
 from app.inventory.service import Stock
-from app.menu.schemas import CategoryOut, FoodItemOut
+from app.items.schemas import CategoryOut, FoodItemOut
 
 
 def to_food_out(item: FoodItem, stock: Stock, popular: bool = False, notify_me: bool = False) -> FoodItemOut:
@@ -37,7 +37,7 @@ def _alerted_food_ids(db: Session, user: Optional[User]) -> set:
     return set(db.scalars(select(StockAlert.food_item_id).where(StockAlert.user_id == user.id)))
 
 
-def list_menu(
+def list_items(
     db: Session,
     user: Optional[User] = None,
     search: Optional[str] = None,
@@ -47,7 +47,11 @@ def list_menu(
     max_price: Optional[float] = None,
     available_only: bool = False,
 ) -> List[FoodItemOut]:
-    stmt = select(FoodItem).order_by(FoodItem.category_id, FoodItem.name)
+    stmt = (
+        select(FoodItem)
+        .where(FoodItem.removed_at.is_(None))
+        .order_by(FoodItem.category_id, FoodItem.name)
+    )
     if search:
         pattern = f"%{search.strip()}%"
         stmt = stmt.where(FoodItem.name.ilike(pattern) | FoodItem.description.ilike(pattern))
@@ -77,7 +81,7 @@ def list_menu(
 
 def get_food_item(db: Session, food_id: int) -> FoodItem:
     item = db.get(FoodItem, food_id)
-    if item is None:
+    if item is None or item.removed_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Food item not found")
     return item
 
@@ -91,7 +95,8 @@ def get_food_out(db: Session, food_id: int, user: Optional[User] = None) -> Food
 
 def list_categories(db: Session) -> List[CategoryOut]:
     types = {}
-    for category_id, food_type in db.execute(select(FoodItem.category_id, FoodItem.food_type).distinct()):
+    listed = select(FoodItem.category_id, FoodItem.food_type).where(FoodItem.removed_at.is_(None))
+    for category_id, food_type in db.execute(listed.distinct()):
         types.setdefault(category_id, set()).add(food_type)
     return [
         CategoryOut(id=c.id, name=c.name, food_types=[t for t in (VEG, NON_VEG) if t in types.get(c.id, ())])
