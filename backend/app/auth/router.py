@@ -3,8 +3,16 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
-from app.auth import service
-from app.auth.schemas import LoginRequest, RegisterRequest, RegisterResponse, TokenResponse
+from app.auth import recovery, service
+from app.auth.schemas import (
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    LoginRequest,
+    RegisterRequest,
+    RegisterResponse,
+    ResetPasswordRequest,
+    TokenResponse,
+)
 from app.auth.security import get_current_session, get_current_user
 from app.database.database import get_db
 from app.database.models import ACCOUNT_PENDING, ADMIN, CANTEEN_STAFF, FACULTY, STUDENT, User, UserSession
@@ -25,6 +33,7 @@ def _register(
         username=user.username,
         role=user.role.name,
         account_status=user.account_status,
+        email=user.email,
     )
 
 
@@ -104,6 +113,21 @@ def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     Students and faculty should use /auth/student/login and /auth/faculty/login.
     """
     return _login(db, data, request)
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Step 1 of "Forgot password" (students, faculty, staff): email a 6-digit code to the
+    account's saved email. The code expires in 10 minutes; a new one can be asked for after 60 s."""
+    return recovery.request_code(db, data)
+
+
+@router.post("/reset-password")
+def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Step 2: Institute ID + the emailed code + new password. 5 wrong tries end the code.
+    On success the account is logged out on every device; log in with the new password."""
+    recovery.reset_password(db, data)
+    return {"message": "Password changed. Please log in with your new password"}
 
 
 @router.get("/me", response_model=UserProfile)

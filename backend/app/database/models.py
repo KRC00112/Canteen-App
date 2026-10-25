@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -57,12 +58,15 @@ class Role(Base):
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (Index("uq_users_email", "email", unique=True),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # Institute ID is the login identifier for every user (students, faculty and staff).
     institute_id: Mapped[str] = mapped_column(String(30), unique=True, nullable=False, index=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Optional, stored lowercase. Used to email a code when the password is forgotten.
+    email: Mapped[Optional[str]] = mapped_column(String(254))
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"), nullable=False)
     account_status: Mapped[str] = mapped_column(String(20), default=ACCOUNT_ACTIVE, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -71,6 +75,23 @@ class User(Base):
     sessions: Mapped[List["UserSession"]] = relationship(back_populates="user")
     cart: Mapped[Optional["Cart"]] = relationship(back_populates="user", uselist=False)
     orders: Mapped[List["Order"]] = relationship(back_populates="user")
+
+
+class PasswordReset(Base):
+    """A one-time code emailed for "Forgot password". Only its hash is stored."""
+
+    __tablename__ = "password_resets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    code_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Set when the code is used, replaced by a newer code, or has too many wrong attempts.
+    used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
 
 class UserSession(Base):

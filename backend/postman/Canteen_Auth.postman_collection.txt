@@ -2937,6 +2937,88 @@
           ]
         }
       ]
+    },
+    {
+      "name": "14. Forgot password",
+      "item": [
+        {
+          "name": "Forgot password: email a code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/forgot-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"institute_id\": \"2621532\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Code sent -> 200 (400 if the account has no email)\", () => pm.expect(pm.response.code).to.be.oneOf([200, 400]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reset password with the code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/reset-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"institute_id\": \"2621532\",\n  \"otp\": \"123456\",\n  \"new_password\": \"New@1234\",\n  \"confirm_password\": \"New@1234\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Put the 6-digit code from the email (or the server log) in \"otp\".",
+                  "pm.test(\"Reset -> 200 (400 = wrong/expired code)\", () => pm.expect(pm.response.code).to.be.oneOf([200, 400]));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [

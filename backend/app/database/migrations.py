@@ -8,6 +8,9 @@ from sqlalchemy.engine import Engine
 
 from app.database.database import Base
 
+# Indexes on new columns (create_all only adds indexes for tables it creates).
+NEW_INDEXES = ["CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users (email)"]
+
 # (table, column, constraints after the column type)
 NEW_COLUMNS = [
     ("food_items", "food_type", "NOT NULL DEFAULT 'VEG'"),
@@ -16,6 +19,7 @@ NEW_COLUMNS = [
     ("cart_items", "reserved_until", ""),
     ("orders", "estimated_ready_at", ""),
     ("food_items", "removed_at", ""),
+    ("users", "email", ""),
 ]
 
 
@@ -33,3 +37,5 @@ def add_missing_columns(engine: Engine) -> None:
                     "CHECK (food_type IN ('VEG', 'NON_VEG'))"
                 ))
                 conn.execute(text("CREATE INDEX ix_food_items_food_type ON food_items (food_type)"))
+        for statement in NEW_INDEXES:
+            conn.execute(text(statement))
