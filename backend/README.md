@@ -182,6 +182,9 @@ In Swagger, click **Authorize** and paste the token.
 | POST | `/auth/faculty/register` | – | Create a FACULTY account (same fields) |
 | POST | `/auth/student/login` | – | Student login (Institute ID + password); returns JWT and role. Other account types get 403 |
 | POST | `/auth/faculty/login` | – | Faculty login; other account types get 403 |
+| POST | `/auth/forgot-password` | – | Forgot password, step 1 (students, faculty, staff): `{institute_id}` → emails a 6-digit code (10 min) to the account's email |
+| POST | `/auth/reset-password` | – | Step 2: `{institute_id, otp, new_password, confirm_password}` → new password; logs the account out everywhere |
+| PUT | `/users/me/email` | User | Add / change the recovery email: `{email, password}` |
 | POST | `/auth/staff/register` | – | Create a CANTEEN_STAFF account (same fields). It is PENDING, and login returns 403 "waiting for admin approval" until the admin approves it |
 | POST | `/auth/staff/login` | – | Canteen staff login; other account types get 403 |
 | POST | `/auth/admin/login` | – | Main canteen admin login; other account types get 403 |
@@ -249,6 +252,34 @@ In Swagger, click **Authorize** and paste the token.
 Errors always look like `{ "detail": "..." }`, using these status codes:
 400 (empty cart), 401 (not logged in / bad credentials), 403 (wrong role),
 404 (not found), 409 (duplicate / out of stock), 422 (invalid input).
+
+## Forgot password (email code)
+
+Students, faculty and staff can reset a forgotten password with a code sent to their email.
+Email is optional at registration (`"email"` in the register body) and can be added later with
+`PUT /users/me/email`. Accounts without an email can't use this (the API says so).
+
+1. `POST /auth/forgot-password` `{"institute_id": "2621532"}` →
+   `{"message": "A 6-digit code was sent to u***@gmail.com", "email": "u***@gmail.com", "expires_in_minutes": 10}`
+2. `POST /auth/reset-password` `{"institute_id": "2621532", "otp": "483920", "new_password": "New@1234", "confirm_password": "New@1234"}` →
+   `{"message": "Password changed. Please log in with your new password"}`
+
+Rules: the code expires in 10 minutes, only the newest code works, 5 wrong tries end it, and a
+new code can be asked for after 60 seconds (429 before that). The admin password can't be reset
+this way (it is `SEED_ADMIN_PASSWORD`).
+
+**Sending the emails.** Render's free plan blocks SMTP, so production uses [Brevo](https://www.brevo.com)
+(free, 300 emails/day, HTTP API):
+
+1. Sign up at brevo.com → **Senders, domains & dedicated IPs → Senders** → add and verify the
+   email address the codes are sent from.
+2. **SMTP & API → API keys** → create a key.
+3. Render → service → **Environment**: `BREVO_API_KEY` = the key, `EMAIL_FROM` = the verified sender.
+
+Until those are set, nothing is emailed: the code is printed to the server log instead
+(`[EMAIL not sent - no provider configured] ... Your password reset code is 483920`), so the
+flow can be tested from the logs. Locally, `SMTP_HOST`/`SMTP_USER`/`SMTP_PASSWORD` (e.g. Gmail
+with an App Password) also work.
 
 ## Live activity (demo / debugging)
 

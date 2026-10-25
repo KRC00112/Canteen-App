@@ -34,6 +34,16 @@ def _article(label: str) -> str:
     return f"an {label}" if label[0] in "AEIOU" else f"a {label}"
 
 
+def ensure_email_free(db: Session, email: Optional[str], except_user_id: Optional[int] = None) -> None:
+    if email is None:
+        return
+    stmt = select(User).where(User.email == email)
+    if except_user_id is not None:
+        stmt = stmt.where(User.id != except_user_id)
+    if db.scalar(stmt) is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This email is already used by another account")
+
+
 def register(
     db: Session, data: RegisterRequest, role_name: str = STUDENT, account_status: str = ACCOUNT_ACTIVE
 ) -> User:
@@ -46,12 +56,14 @@ def register(
         )
     if db.scalar(select(User).where(User.username == data.username)) is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username is already taken")
+    ensure_email_free(db, data.email)
 
     role = db.scalar(select(Role).where(Role.name == role_name))
     user = User(
         institute_id=institute_id,
         username=data.username,
         password_hash=hash_password(data.password),
+        email=data.email,
         role_id=role.id,
         account_status=account_status,
     )

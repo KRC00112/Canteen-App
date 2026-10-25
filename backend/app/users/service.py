@@ -19,6 +19,7 @@ def to_profile(user: User) -> UserProfile:
         id=user.id,
         institute_id=user.institute_id,
         username=user.username,
+        email=user.email,
         role=user.role.name,
         account_status=user.account_status,
         created_at=user.created_at,

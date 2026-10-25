@@ -15,6 +15,7 @@ VIEWS = {
             u.id                                      AS user_id,
             u.institute_id,
             u.username,
+            u.email,
             r.name                                    AS role,
             u.account_status,
             u.created_at                              AS registered_at,
