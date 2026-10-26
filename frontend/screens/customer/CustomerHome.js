@@ -389,7 +389,9 @@ async function removingItemsFromCart(id) {
                 <View style={home.nonScrollable}> 
                     <View style={styles.appBar}>
                         <Text>Welcome {loggedInUserData?.username}!</Text>
-                        <Pressable style={home.goToCartBtn} onPress={()=>navigation.navigate('Cart', {userData: loggedInUserData})}><Text>Cart</Text></Pressable>
+                        <Pressable style={home.goToCartBtn} onPress={()=>navigation.navigate('Cart', {userData: loggedInUserData})}>
+                            <Ionicons name="cart" size={24} color="#111111" />
+                        </Pressable>
                     </View>
                     <View style={home.searchAndFilter}>
                         <TextInput
@@ -397,7 +399,9 @@ async function removingItemsFromCart(id) {
                             placeholder='Enter Food Name...'
                             onChangeText={value=>handleSearchInput(value)}
                         />
-                        <Pressable style={home.filterBtn} onPress={handleFilterFormVisibility}><Text>Filter</Text></Pressable>
+                        <Pressable style={home.filterBtn} onPress={handleFilterFormVisibility}>
+                            <Ionicons name="filter" size={24} color="#111111" />
+                        </Pressable>
                     </View>
                 </View>
                 <ScrollView style={home.itemsList}>

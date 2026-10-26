@@ -2,11 +2,8 @@ import { StyleSheet } from "react-native";
 
 const cart = StyleSheet.create({
     container: {
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "flex-start",
-        width: "100%",
-        height: "100%",
+        flex: 1,
+        backgroundColor: "#FFF8E7",
     },
     headerText: {
         fontSize: 22,
@@ -15,21 +12,21 @@ const cart = StyleSheet.create({
     backBtn: {
         backgroundColor: "white",
         borderColor: "black",
-        borderWidth: 2,
+        borderWidth: 3,
         borderRadius: 2,
         padding: "3%",
-        boxShadow: "4px 5px rgba(0, 0, 0)",
+        boxShadow: "3px 3px rgba(0, 0, 0, 1)",
     },
     cartSummary: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
         backgroundColor: "#7DF9FF",
-        borderWidth: 2,
+        borderWidth: 3,
         borderColor: "black",
         padding: "4%",
         marginBottom: 12,
-        boxShadow: "4px 5px rgba(0, 0, 0)",
+        boxShadow: "5px 5px rgba(0, 0, 0, 1)",
     },
     itemsList: {
         flex: 1,

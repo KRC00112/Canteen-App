@@ -6,6 +6,7 @@ import home from "../../../styles/screens/home"
 import {useEffect, useState} from "react";
 import { ScrollView } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
+import { AdminUserCard } from "../../../components/AdminDataCard";
 
 
 
@@ -13,7 +14,7 @@ export default function StaffList({route}){
 
     const loggedInUserData = route?.params?.userData;
     const token = loggedInUserData?.access_token;
-    const [staffList, setStaffList]=useState();
+    const [staffList, setStaffList]=useState([]);
 
     useEffect(() => {
         async function getUsersList() {
@@ -35,14 +36,10 @@ export default function StaffList({route}){
     return(
         <SafeAreaView style={home.container} edges={['top', 'left', 'right']}>
             <View style={styles.defaultView}>
-                <View style={styles.addNewCard}>
-                    <Ionicons name="add-circle-outline" size={28} color="black" />
-                    <Text>Add New Staff Member</Text>
-                </View>
                 <ScrollView>
                     {staffList?.map(member=>{
                         return(
-                            <Text key={member.id}>{member.username} </Text>
+                            <AdminUserCard key={member.id} user={member} />
                            
                         );
                     })}
