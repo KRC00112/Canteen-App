@@ -21,6 +21,7 @@ class StaffOrderOut(BaseModel):
     created_at: Optional[datetime]
     estimated_ready_at: Optional[datetime]
     items: List[OrderItemOut]
+    payment_id: Optional[str] = None
 
 
 def list_orders(db: Session, status: Optional[str] = None) -> List[StaffOrderOut]:
@@ -37,6 +38,7 @@ def list_orders(db: Session, status: Optional[str] = None) -> List[StaffOrderOut
             created_at=o.created_at,
             estimated_ready_at=o.estimated_ready_at,
             items=[order_item_out(oi) for oi in o.items],
+            payment_id=o.payment.razorpay_payment_id if o.payment else None,
         )
         for o in db.scalars(stmt).unique()
     ]

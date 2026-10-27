@@ -23,6 +23,7 @@ from app.database.models import (
     Inventory,
     Notification,
     Order,
+    Payment,
     StockAlert,
     User,
     UserSession,
@@ -52,6 +53,22 @@ class AdminSessionOut(BaseModel):
     device: Optional[str]
     ip_address: Optional[str]
     active: bool
+
+
+class AdminPaymentOut(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: Optional[str]
+    user_id: int
+    institute_id: str
+    username: str
+    amount: float
+    currency: str
+    # CREATED (checkout started) | PAID (verified) | USED (paid for an order)
+    status: str
+    created_at: datetime
+    verified_at: Optional[datetime]
+    # Canteen order it paid for, e.g. ORD-20261027-0003
+    order_id: Optional[str]
 
 
 class AdminNotificationOut(NotificationOut):
@@ -175,6 +192,28 @@ def list_sessions(db: Session, active_only: bool = False) -> List[AdminSessionOu
     if active_only:
         stmt = stmt.where(UserSession.logged_out_at.is_(None), UserSession.expires_at > utcnow())
     return [_session_out(s) for s in db.scalars(stmt).unique()]
+
+
+def list_payments(db: Session, payment_status: Optional[str] = None) -> List[AdminPaymentOut]:
+    stmt = select(Payment).order_by(Payment.id.desc())
+    if payment_status is not None:
+        stmt = stmt.where(Payment.status == payment_status)
+    return [
+        AdminPaymentOut(
+            razorpay_order_id=p.razorpay_order_id,
+            razorpay_payment_id=p.razorpay_payment_id,
+            user_id=p.user_id,
+            institute_id=p.user.institute_id,
+            username=p.user.username,
+            amount=p.amount / 100,
+            currency=p.currency,
+            status=p.status,
+            created_at=p.created_at,
+            verified_at=p.verified_at,
+            order_id=p.order.order_id if p.order else None,
+        )
+        for p in db.scalars(stmt).unique()
+    ]
 
 
 def list_notifications(db: Session, user_id: Optional[int] = None) -> List[AdminNotificationOut]:

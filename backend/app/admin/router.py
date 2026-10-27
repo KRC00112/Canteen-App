@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.admin import service
 from app.admin.service import (
     AdminNotificationOut,
+    AdminPaymentOut,
     AdminSessionOut,
     AdminStockAlertOut,
     AdminUserDetail,
@@ -59,6 +60,18 @@ def all_orders(
 def order_detail(order_id: str, admin: User = Depends(admin_only), db: Session = Depends(get_db)):
     """Any order by its order ID (e.g. ORD-20261010-0001), with the customer who placed it."""
     return service.get_order(db, order_id)
+
+
+@router.get("/payments", response_model=List[AdminPaymentOut])
+def all_payments(
+    payment_status: Optional[Literal["CREATED", "PAID", "USED"]] = Query(
+        None, alias="status", description="CREATED = checkout started, PAID = verified, USED = order placed"
+    ),
+    admin: User = Depends(admin_only),
+    db: Session = Depends(get_db),
+):
+    """Every Razorpay payment, newest first, with the customer and the order it paid for."""
+    return service.list_payments(db, payment_status)
 
 
 @router.get("/sessions", response_model=List[AdminSessionOut])

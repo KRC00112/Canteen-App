@@ -42,6 +42,17 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 # Razorpay payment orders. The secret must remain server-side.
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
+# Whether POST /orders needs a verified payment: "auto" (default) = only when the Razorpay
+# keys are set, so ordering keeps working for testing until payments are configured.
+PAYMENT_REQUIRED = os.getenv("PAYMENT_REQUIRED", "auto").strip().lower()
+
+
+def payment_required() -> bool:
+    if PAYMENT_REQUIRED in ("true", "1", "yes"):
+        return True
+    if PAYMENT_REQUIRED in ("false", "0", "no"):
+        return False
+    return bool(RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET)
 
 # Stock rules
 # Adding/changing a cart item holds that stock for this long, so nobody else can take it.

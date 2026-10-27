@@ -205,7 +205,7 @@ In Swagger, click **Authorize** and paste the token.
 | DELETE | `/cart/items/{item_id}` | User | Remove item |
 | DELETE | `/cart` | User | Clear cart |
 | POST | `/payments/orders` | User | Create a Razorpay payment order for the current cart |
-| POST | `/payments/verify` | User | Verify a successful Razorpay payment signature |
+| POST | `/payments/verify` | User | Verify a successful Razorpay payment signature; then `POST /orders` (needs it when payments are on) |
 | POST | `/orders` | User | Place an order from the cart |
 | GET | `/orders` | User | My order history |
 | GET | `/orders/{order_id}` | User | Order details (e.g. `ORD-20261010-0001`) |
@@ -217,6 +217,7 @@ In Swagger, click **Authorize** and paste the token.
 | GET | `/admin/users/{user_id}` | ADMIN | Full customer details: profile, login history, orders, total spent, notifications, stock alerts |
 | GET | `/admin/orders` | ADMIN | Every order (`?status=PLACED`, `?user_id=3`) |
 | GET | `/admin/orders/{order_id}` | ADMIN | Any order with the customer who placed it |
+| GET | `/admin/payments` | ADMIN | Every Razorpay payment: customer, amount, status (`CREATED` / `PAID` / `USED`), the order it paid for |
 | GET | `/admin/sessions` | ADMIN | Login history of every account: device, IP, login/logout times (`?active_only=true`) |
 | GET | `/admin/notifications` | ADMIN | Notifications sent to every user (`?user_id=3`) |
 | GET | `/admin/stock-alerts` | ADMIN | Every customer's "Notify me" request |
@@ -251,12 +252,30 @@ In Swagger, click **Authorize** and paste the token.
 // -> { "order_id": "ORD-20261010-0001", "status": "PLACED", "total_amount": 160.0, "items": [...], "message": "Order placed successfully" }
 ```
 
-Payment checkout starts with `POST /payments/orders` (no body). The server calculates the
-cart total in paise and creates the Razorpay order using the server-only secret. It returns
-`key_id`, `order_id`, `amount`, and `currency` for the mobile Razorpay checkout. Only after
-the payment succeeds should the app call `POST /payments/verify` with Razorpay's
-`razorpay_order_id`, `razorpay_payment_id`, and `razorpay_signature`. Only after verification
-should the app call `POST /orders` to reserve inventory and create the canteen order.
+### Payments (Razorpay)
+
+1. `POST /payments/orders` (no body) → the server totals the cart in paise, creates the Razorpay
+   order with the server-only secret and saves it: `{"key_id", "order_id", "amount", "currency"}`.
+   Open Razorpay Checkout with these.
+2. `POST /payments/verify` with what checkout returns:
+   `{"razorpay_order_id", "razorpay_payment_id", "razorpay_signature"}` → checks the signature and
+   marks the payment PAID: `{"verified": true, "order_id", "payment_id", "message"}`.
+   Only the user who created the payment order can verify it; retrying the same payment is fine.
+3. `POST /orders` (no body) → places the order using the newest verified, unused payment whose
+   amount equals the cart total. Each payment pays for one order. The order (and staff/admin
+   order lists) show `payment_id`.
+
+| Status | Meaning |
+|---|---|
+| 402 on `/orders` | No verified payment yet ("Please complete the payment before placing the order") |
+| 409 on `/orders` | Cart changed after paying (paid amount ≠ cart total) |
+| 400 on `/payments/verify` | Signature doesn't match ("Payment verification failed") |
+| 404 on `/payments/verify` | Unknown order id, or another user's |
+| 503 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` not set |
+
+`PAYMENT_REQUIRED` (env): `auto` (default) = `/orders` needs a payment only when the Razorpay
+keys are set, so ordering keeps working for testing before payments are configured; `true` /
+`false` force it. `GET /admin/payments` (`?status=CREATED|PAID|USED`) lists every payment.
 
 Errors always look like `{ "detail": "..." }`, using these status codes:
 400 (empty cart), 401 (not logged in / bad credentials), 403 (wrong role),
@@ -321,7 +340,7 @@ Read-only views are created automatically (PostgreSQL). In pgAdmin they're under
 |---|---|
 | `users_overview` | Every registered user and their login status: `is_logged_in`, `active_sessions`, `total_logins`, `last_login_at`, `last_seen_at` |
 | `logged_in_users` | Only the users logged in right now, one row per active login (device, IP, login time) |
-| `orders_overview` | Every order, newest first: customer, total, items (`Veg Biryani x2, ...`), placed / ready times |
+| `orders_overview` | Every order, newest first: customer, total, Razorpay `payment_id`, items (`Veg Biryani x2, ...`), placed / ready times |
 | `admin_account` | The one permanent main canteen admin account and its login status |
 | `items_overview` | Every food item with category, `food_type` (VEG / NON_VEG), price, cooking time, ingredients and stock |
 
