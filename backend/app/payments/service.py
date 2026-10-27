@@ -1,4 +1,6 @@
 import base64
+import hashlib
+import hmac
 import json
 import uuid
 from decimal import Decimal, ROUND_HALF_UP
@@ -11,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
 from app.database.models import Cart, User
-from app.payments.schemas import PaymentOrderOut
+from app.payments.schemas import PaymentOrderOut, PaymentVerifyIn, PaymentVerifyOut
 
 
 def create_payment_order(db: Session, user: User) -> PaymentOrderOut:
@@ -83,4 +85,29 @@ def create_payment_order(db: Session, user: User) -> PaymentOrderOut:
         order_id=order_id,
         amount=amount,
         currency="INR",
+    )
+
+
+def verify_payment(payment: PaymentVerifyIn) -> PaymentVerifyOut:
+    if not RAZORPAY_KEY_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Payment service is not configured",
+        )
+
+    message = f"{payment.razorpay_order_id}|{payment.razorpay_payment_id}".encode("utf-8")
+    expected_signature = hmac.new(
+        RAZORPAY_KEY_SECRET.encode("utf-8"), message, hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(expected_signature, payment.razorpay_signature):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payment verification failed",
+        )
+
+    return PaymentVerifyOut(
+        verified=True,
+        order_id=payment.razorpay_order_id,
+        payment_id=payment.razorpay_payment_id,
+        message="Payment verified successfully",
     )

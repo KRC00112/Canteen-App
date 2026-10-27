@@ -166,6 +166,31 @@ const cart = StyleSheet.create({
         fontWeight: "bold",
         fontSize: 16,
     },
+    paymentResult: {
+        borderWidth: 2,
+        borderColor: "black",
+        padding: 14,
+        marginTop: 8,
+        marginBottom: 4,
+    },
+    paymentSuccess: {
+        backgroundColor: "#B8FFB8",
+    },
+    paymentFailure: {
+        backgroundColor: "#FFD0D0",
+    },
+    paymentResultTitle: {
+        fontWeight: "900",
+        fontSize: 20,
+        marginBottom: 4,
+    },
+    receipt: {
+        marginTop: 10,
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderColor: "black",
+        gap: 4,
+    },
 });
 
 export default cart;

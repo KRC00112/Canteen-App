@@ -1,9 +1,10 @@
-import { Text, View, Pressable, Image, ScrollView } from "react-native";
+import { Text, View, Pressable, Image, ScrollView, Platform, NativeModules } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect} from "@react-navigation/native";
 import { useState, useEffect, useCallback} from "react";
 import styles from "../../styles";
 import cart from "../../styles/screens/cart";
+import RazorpayCheckout from "react-native-razorpay";
 
 
 function CartItemCard({ item, addingItemsToCart, removingItemsFromCart }) {
@@ -51,6 +52,7 @@ export default function Cart({route}) {
     const loggedInUserData = route.params?.userData;
     const token = loggedInUserData?.access_token;
     const [cartItems, setCartItems]=useState({}); //this holds the food id and count unlike itemsInCart that fetches all the other details about the food from the id
+    const [paymentState, setPaymentState] = useState({ status: "idle", message: "", receipt: null });
 
 
 
@@ -155,26 +157,7 @@ export default function Cart({route}) {
     }
 
 
-    async function pay(){
-        const response = await fetch(`https://canteen-backend-xzko.onrender.com/payments/orders`,{
-            method: 'POST',
-            headers: {
-                Authorization: `******`
-            }
-        });
-
-        const paymentOrder = await response.json();
-        if (!response.ok) {
-            console.log('Could not create payment order:', paymentOrder.detail);
-            return;
-        }
-
-        console.log('Razorpay order created:', paymentOrder);
-        // Pass paymentOrder to the native Razorpay checkout. Call placeOrder only
-        // from the checkout success handler after payment verification.
-    }
-
-    async function placeOrder(){
+    async function placeOrder(paymentDetails){
 
         try{
             const response = await fetch(`https://canteen-backend-xzko.onrender.com/orders`,{
@@ -185,31 +168,75 @@ export default function Cart({route}) {
             });
 
             if(!response.ok){
-                console.log('something went wrong');
-                return;
+                const error = await response.json();
+                throw new Error(error.detail || "Could not place the canteen order");
             }
 
-            const data=await response.json();
-            const delResponse = await fetch(`https://canteen-backend-xzko.onrender.com/cart`,{
-                    method: 'DELETE',
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                }
-            );
-            if (!delResponse.ok){
-                console.log('order placed but couldn\'t clear cart');
-            }
-            navigation.navigate('CustomerTabs', {
-                userData: loggedInUserData, // for CustomerTabs and its tabs
-                screen: 'Orders',
-                // params: { userData: loggedInUserData }, // for Orders
-            });
+            const order = await response.json();
+            const receipt = { ...order, payment_id: paymentDetails.razorpay_payment_id };
+            console.log("CANTEEN ORDER RECEIPT", receipt);
+            setCartItems({ items: [] });
+            setPaymentState({ status: "success", message: "Payment and order successful", receipt });
+            return true;
 
         }catch(error){
-            console.log(`can't connect to server: ${error}`)
+            console.log("ORDER FAILED", error);
+            setPaymentState({ status: "order-failed", message: `Payment succeeded, but the order could not be placed: ${error.message || "unknown error"}`, receipt: null });
+            return false;
         }
 
+    }
+
+    async function pay(){
+        if (paymentState.status === "processing") return;
+        const nativeCheckoutAvailable = Boolean(NativeModules.RNRazorpayCheckout?.open);
+        if (Platform.OS === "web" || !nativeCheckoutAvailable) {
+            const message = Platform.OS === "web"
+                ? "Razorpay checkout is available in the Android/iOS app, not Expo Web"
+                : "Razorpay native module is missing. Rebuild the Android app after installing react-native-razorpay.";
+            console.log("PAYMENT UNAVAILABLE", message);
+            setPaymentState({ status: "failed", message, receipt: null });
+            return;
+        }
+        setPaymentState({ status: "processing", message: "Starting secure payment...", receipt: null });
+
+        try {
+            const response = await fetch(`https://canteen-backend-xzko.onrender.com/payments/orders`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const paymentOrder = await response.json();
+            if (!response.ok) throw new Error(paymentOrder.detail || "Could not start payment");
+
+            console.log("RAZORPAY ORDER CREATED", paymentOrder);
+            const paymentResult = await RazorpayCheckout.open({
+                key: paymentOrder.key_id,
+                amount: paymentOrder.amount,
+                currency: paymentOrder.currency,
+                name: "Canteen App",
+                description: "Canteen order payment",
+                order_id: paymentOrder.order_id,
+            });
+            console.log("RAZORPAY PAYMENT SUCCESS", paymentResult);
+
+            const verifyResponse = await fetch(`https://canteen-backend-xzko.onrender.com/payments/verify`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(paymentResult)
+            });
+            const verification = await verifyResponse.json();
+            if (!verifyResponse.ok || !verification.verified) {
+                throw new Error(verification.detail || "Payment verification failed");
+            }
+            console.log("PAYMENT VERIFIED", verification);
+            await placeOrder(paymentResult);
+        } catch (error) {
+            console.log("PAYMENT FAILED OR CANCELLED", error);
+            setPaymentState({ status: "failed", message: error.description || error.message || "Payment failed or was cancelled", receipt: null });
+        }
     }
 
 
@@ -243,9 +270,24 @@ export default function Cart({route}) {
                             <Text>Total ({totalItems} items)</Text>
                             <Text style={cart.totalPrice}>₹ {totalPrice}</Text>
                         </View>
-                        <Pressable style={cart.checkoutBtn} onPress={pay}>
-                            <Text style={cart.checkoutBtnText}>Place Order →</Text>
+                        <Pressable style={cart.checkoutBtn} onPress={pay} disabled={paymentState.status === "processing"}>
+                            <Text style={cart.checkoutBtnText}>{paymentState.status === "processing" ? "Processing..." : "Place Order →"}</Text>
                         </Pressable>
+                    </View>
+                )}
+
+                {paymentState.status !== "idle" && (
+                    <View style={[cart.paymentResult, paymentState.status === "success" ? cart.paymentSuccess : cart.paymentFailure]}>
+                        <Text style={cart.paymentResultTitle}>{paymentState.status === "success" ? "Order confirmed" : paymentState.status === "processing" ? "Payment in progress" : paymentState.status === "order-failed" ? "Order failed after payment" : "Payment failed"}</Text>
+                        <Text>{paymentState.message}</Text>
+                        {paymentState.receipt && (
+                            <View style={cart.receipt}>
+                                <Text>Receipt: {paymentState.receipt.order_id}</Text>
+                                <Text>Paid: ₹ {paymentState.receipt.total_amount}</Text>
+                                <Text>Payment ID: {paymentState.receipt.payment_id}</Text>
+                                <Text>Items: {paymentState.receipt.items?.length || 0}</Text>
+                            </View>
+                        )}
                     </View>
                 )}
             </View>

@@ -5,7 +5,7 @@ from app.auth.security import get_current_user
 from app.database.database import get_db
 from app.database.models import User
 from app.payments import service
-from app.payments.schemas import PaymentOrderOut
+from app.payments.schemas import PaymentOrderOut, PaymentVerifyIn, PaymentVerifyOut
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -16,3 +16,11 @@ def create_payment_order(
 ):
     """Create a Razorpay payment order for the authenticated user's current cart."""
     return service.create_payment_order(db, user)
+
+
+@router.post("/verify", response_model=PaymentVerifyOut)
+def verify_payment(
+    payment: PaymentVerifyIn, user: User = Depends(get_current_user)
+):
+    """Verify the Razorpay signature before the app creates a canteen order."""
+    return service.verify_payment(payment)
