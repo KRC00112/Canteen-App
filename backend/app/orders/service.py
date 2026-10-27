@@ -14,6 +14,10 @@ from app.database.models import (
     CANTEEN_STAFF,
     NOTIFY_ORDER_PLACED,
     ORDER_PLACED,
+    PAYMENT_CASH_ON_PICKUP,
+    PAYMENT_PAID,
+    PAYMENT_PENDING,
+    PAYMENT_METHODS,
     Cart,
     Notification,
     Order,
@@ -35,6 +39,8 @@ def to_order_out(order: Order) -> OrderOut:
         order_id=order.order_id,
         status=order.status,
         total_amount=order.total_amount,
+        payment_method=order.payment_method,
+        payment_status=order.payment_status,
         created_at=order.created_at,
         estimated_ready_at=order.estimated_ready_at,
         estimated_ready_minutes=estimated_ready_minutes(order),
@@ -58,13 +64,20 @@ def _make_order_code(order: Order) -> str:
     return f"ORD-{datetime.now().strftime('%Y%m%d')}-{order.id:04d}"
 
 
-def place_order(db: Session, user: User) -> OrderPlacedOut:
+def place_order(db: Session, user: User, payment_method: str) -> OrderPlacedOut:
     """Convert the user's cart into an order in a single transaction.
 
     Steps: lock cart -> validate -> lock inventory rows -> check stock (not counting
     other customers' active cart holds) -> create order and items -> reduce inventory
     -> clear cart -> notify -> commit.
     """
+    payment_method = payment_method.upper()
+    if payment_method not in PAYMENT_METHODS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported payment method. Choose one of: {', '.join(PAYMENT_METHODS)}",
+        )
+
     # Locking the cart serialises concurrent/repeated "place order" requests from the
     # same user, so a double-tap cannot create two orders from one cart.
     cart = db.scalar(select(Cart).where(Cart.user_id == user.id).with_for_update())
@@ -94,6 +107,8 @@ def place_order(db: Session, user: User) -> OrderPlacedOut:
         user_id=user.id,
         total_amount=total,
         status=ORDER_PLACED,
+        payment_method=payment_method,
+        payment_status=PAYMENT_PENDING if payment_method == PAYMENT_CASH_ON_PICKUP else PAYMENT_PAID,
         created_at=now,
         estimated_ready_at=now + timedelta(minutes=cooking_minutes),
         items=order_items,

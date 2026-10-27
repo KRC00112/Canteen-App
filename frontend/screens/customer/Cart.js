@@ -64,6 +64,7 @@ export default function Cart({route}) {
             try{
                 const response = await fetch(`https://canteen-backend-xzko.onrender.com/cart`,{
                     headers: {
+                        "Content-Type": "application/json",
                         Authorization: `Bearer ${token}`
                     }
                 });
@@ -157,12 +158,15 @@ export default function Cart({route}) {
     }
 
 
-    async function placeOrder(paymentDetails){
+    async function placeOrder(paymentMethod, paymentDetails = null){
 
         try{
             const response = await fetch(`https://canteen-backend-xzko.onrender.com/orders`,{
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ payment_method: paymentMethod }),
                 headers: {
+                    "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 }
             });
@@ -173,22 +177,39 @@ export default function Cart({route}) {
             }
 
             const order = await response.json();
-            const receipt = { ...order, payment_id: paymentDetails.razorpay_payment_id };
+            const receipt = { ...order, payment_id: paymentDetails?.razorpay_payment_id || null };
             console.log("CANTEEN ORDER RECEIPT", receipt);
             setCartItems({ items: [] });
-            setPaymentState({ status: "success", message: "Payment and order successful", receipt });
+            setPaymentState({
+                status: "success",
+                message: paymentMethod === "CASH_ON_PICKUP"
+                    ? "Order placed. Pay in cash when you pick it up."
+                    : "Payment and order successful",
+                receipt
+            });
             return true;
 
         }catch(error){
             console.log("ORDER FAILED", error);
-            setPaymentState({ status: "order-failed", message: `Payment succeeded, but the order could not be placed: ${error.message || "unknown error"}`, receipt: null });
+            setPaymentState({
+                status: "order-failed",
+                message: paymentMethod === "CASH_ON_PICKUP"
+                    ? `The order could not be placed: ${error.message || "unknown error"}`
+                    : `Payment succeeded, but the order could not be placed: ${error.message || "unknown error"}`,
+                receipt: null
+            });
             return false;
         }
 
     }
 
-    async function pay(){
+    async function pay(paymentMethod){
         if (paymentState.status === "processing") return;
+        if (paymentMethod === "CASH_ON_PICKUP") {
+            setPaymentState({ status: "processing", message: "Placing cash-on-pickup order...", receipt: null });
+            await placeOrder(paymentMethod);
+            return;
+        }
         const nativeCheckoutAvailable = Boolean(NativeModules.RNRazorpayCheckout?.open);
         if (Platform.OS === "web" || !nativeCheckoutAvailable) {
             const message = Platform.OS === "web"
@@ -216,6 +237,7 @@ export default function Cart({route}) {
                 name: "Canteen App",
                 description: "Canteen order payment",
                 order_id: paymentOrder.order_id,
+                method: { upi: true },
             });
             console.log("RAZORPAY PAYMENT SUCCESS", paymentResult);
 
@@ -232,7 +254,7 @@ export default function Cart({route}) {
                 throw new Error(verification.detail || "Payment verification failed");
             }
             console.log("PAYMENT VERIFIED", verification);
-            await placeOrder(paymentResult);
+            await placeOrder(paymentMethod, paymentResult);
         } catch (error) {
             console.log("PAYMENT FAILED OR CANCELLED", error);
             setPaymentState({ status: "failed", message: error.description || error.message || "Payment failed or was cancelled", receipt: null });
@@ -242,6 +264,7 @@ export default function Cart({route}) {
 
     const totalItems=cartItems.items?.reduce((total, item) => total + item.quantity, 0);
     const totalPrice= cartItems.items?.reduce((total, item) => total + item.price * item.quantity, 0);
+    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("UPI");
 
 
   
@@ -270,7 +293,27 @@ export default function Cart({route}) {
                             <Text>Total ({totalItems} items)</Text>
                             <Text style={cart.totalPrice}>₹ {totalPrice}</Text>
                         </View>
-                        <Pressable style={cart.checkoutBtn} onPress={pay} disabled={paymentState.status === "processing"}>
+                        <Text style={{ fontWeight: "bold", marginTop: 10 }}>Payment method</Text>
+                        <View style={{ flexDirection: "row", gap: 8, marginVertical: 8 }}>
+                            {[
+                                ["UPI", "Pay with UPI"],
+                                ["CASH_ON_PICKUP", "Cash on pickup"],
+                            ].map(([value, label]) => (
+                                <Pressable
+                                    key={value}
+                                    onPress={() => setSelectedPaymentMethod(value)}
+                                    style={{
+                                        borderWidth: 2,
+                                        borderColor: "black",
+                                        backgroundColor: selectedPaymentMethod === value ? "#2FFF2F" : "white",
+                                        padding: 10,
+                                    }}
+                                >
+                                    <Text style={{ fontWeight: "bold" }}>{label}</Text>
+                                </Pressable>
+                            ))}
+                        </View>
+                        <Pressable style={cart.checkoutBtn} onPress={() => pay(selectedPaymentMethod)} disabled={paymentState.status === "processing"}>
                             <Text style={cart.checkoutBtnText}>{paymentState.status === "processing" ? "Processing..." : "Place Order →"}</Text>
                         </Pressable>
                     </View>
@@ -284,7 +327,11 @@ export default function Cart({route}) {
                             <View style={cart.receipt}>
                                 <Text>Receipt: {paymentState.receipt.order_id}</Text>
                                 <Text>Paid: ₹ {paymentState.receipt.total_amount}</Text>
-                                <Text>Payment ID: {paymentState.receipt.payment_id}</Text>
+                                <Text>
+                                    Payment: {paymentState.receipt.payment_method === "CASH_ON_PICKUP"
+                                        ? "Cash on pickup"
+                                        : `UPI (${paymentState.receipt.payment_id})`}
+                                </Text>
                                 <Text>Items: {paymentState.receipt.items?.length || 0}</Text>
                             </View>
                         )}

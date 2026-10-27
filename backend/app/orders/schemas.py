@@ -4,6 +4,11 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from app.database.models import Order, OrderItem
+from app.database.models import PAYMENT_UPI
+
+
+class PlaceOrderIn(BaseModel):
+    payment_method: str = PAYMENT_UPI
 
 
 class OrderItemOut(BaseModel):
@@ -19,6 +24,8 @@ class OrderOut(BaseModel):
     order_id: str
     status: str
     total_amount: float
+    payment_method: str
+    payment_status: str
     created_at: Optional[datetime]
     # Based on the slowest item's average cooking time.
     estimated_ready_at: Optional[datetime]

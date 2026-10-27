@@ -20,6 +20,8 @@ NEW_COLUMNS = [
     ("orders", "estimated_ready_at", ""),
     ("food_items", "removed_at", ""),
     ("users", "email", ""),
+    ("orders", "payment_method", "NOT NULL DEFAULT 'UPI'"),
+    ("orders", "payment_status", "NOT NULL DEFAULT 'PAID'"),
 ]
 
 

@@ -36,6 +36,13 @@ ACCOUNT_PENDING = "PENDING"
 # Order status (only PLACED is used for Demo 1)
 ORDER_PLACED = "PLACED"
 
+# Payment methods and lifecycle states
+PAYMENT_UPI = "UPI"
+PAYMENT_CASH_ON_PICKUP = "CASH_ON_PICKUP"
+PAYMENT_METHODS = [PAYMENT_UPI, PAYMENT_CASH_ON_PICKUP]
+PAYMENT_PAID = "PAID"
+PAYMENT_PENDING = "PENDING"
+
 # Every food item is either veg or non-veg.
 VEG = "VEG"
 NON_VEG = "NON_VEG"
@@ -200,6 +207,8 @@ class Order(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default=ORDER_PLACED, nullable=False)
+    payment_method: Mapped[str] = mapped_column(String(30), default=PAYMENT_UPI, nullable=False)
+    payment_status: Mapped[str] = mapped_column(String(20), default=PAYMENT_PAID, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     # Based on the slowest item's average cooking time.
     estimated_ready_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

@@ -7,15 +7,19 @@ from app.auth.security import get_current_user
 from app.database.database import get_db
 from app.database.models import User
 from app.orders import service
-from app.orders.schemas import OrderOut, OrderPlacedOut, OrderSummaryOut
+from app.orders.schemas import OrderOut, OrderPlacedOut, OrderSummaryOut, PlaceOrderIn
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
 
 @router.post("", response_model=OrderPlacedOut, status_code=status.HTTP_201_CREATED)
-def place_order(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def place_order(
+    payload: PlaceOrderIn = PlaceOrderIn(),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Place a pre-order from the items currently in the cart."""
-    return service.place_order(db, user)
+    return service.place_order(db, user, payload.payment_method)
 
 
 @router.get("", response_model=List[OrderSummaryOut])
