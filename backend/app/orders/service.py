@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app import activity
 from app.auth.security import utcnow
+from app.config import payment_required
 from app.database.models import (
     ADMIN,
     CANTEEN_STAFF,
@@ -18,6 +19,8 @@ from app.database.models import (
     PAYMENT_PAID,
     PAYMENT_PENDING,
     PAYMENT_METHODS,
+    PAYMENT_UPI,
+    PAYMENT_USED,
     Cart,
     Notification,
     Order,
@@ -25,6 +28,7 @@ from app.database.models import (
     User,
 )
 from app.inventory import service as inventory_service
+from app.payments import service as payments_service
 from app.orders.schemas import (
     OrderOut,
     OrderPlacedOut,
@@ -45,6 +49,7 @@ def to_order_out(order: Order) -> OrderOut:
         estimated_ready_at=order.estimated_ready_at,
         estimated_ready_minutes=estimated_ready_minutes(order),
         items=[order_item_out(oi) for oi in order.items],
+        payment_id=order.payment.razorpay_payment_id if order.payment else None,
     )
 
 
@@ -67,9 +72,10 @@ def _make_order_code(order: Order) -> str:
 def place_order(db: Session, user: User, payment_method: str) -> OrderPlacedOut:
     """Convert the user's cart into an order in a single transaction.
 
-    Steps: lock cart -> validate -> lock inventory rows -> check stock (not counting
-    other customers' active cart holds) -> create order and items -> reduce inventory
-    -> clear cart -> notify -> commit.
+    Steps: lock cart -> validate -> verified payment for this total (when payments are on)
+    -> lock inventory rows -> check stock (not counting other customers' active cart holds)
+    -> create order and items -> reduce inventory -> use up the payment -> clear cart
+    -> notify -> commit.
     """
     payment_method = payment_method.upper()
     if payment_method not in PAYMENT_METHODS:
@@ -83,6 +89,10 @@ def place_order(db: Session, user: User, payment_method: str) -> OrderPlacedOut:
     cart = db.scalar(select(Cart).where(Cart.user_id == user.id).with_for_update())
     if cart is None or not cart.items:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Your cart is empty")
+
+    payment = None
+    if payment_method == PAYMENT_UPI and payment_required():
+        payment = payments_service.take_verified_payment(db, user, payments_service.cart_total(cart))
 
     # Lock inventory rows in a consistent order (by food id) to avoid deadlocks, and so
     # two customers cannot consume the same stock.
@@ -116,6 +126,10 @@ def place_order(db: Session, user: User, payment_method: str) -> OrderPlacedOut:
     db.add(order)
     db.flush()
     order.order_id = _make_order_code(order)
+    if payment is not None:
+        payment.status = PAYMENT_USED
+        payment.order_id = order.id
+        order.payment = payment
     db.add(
         Notification(
             user_id=user.id,
@@ -128,8 +142,9 @@ def place_order(db: Session, user: User, payment_method: str) -> OrderPlacedOut:
     db.commit()
     db.refresh(order)
     activity.event(
-        f"Order {order.order_id} placed: Rs {total}, ready in ~{cooking_minutes} min; "
-        + ", ".join(stock_changes)
+        f"Order {order.order_id} placed: Rs {total}, ready in ~{cooking_minutes} min"
+        + (f", paid by {payment.razorpay_payment_id}" if payment else ", no payment (payments off)")
+        + "; " + ", ".join(stock_changes)
     )
 
     out = to_order_out(order)

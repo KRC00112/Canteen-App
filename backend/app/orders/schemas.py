@@ -31,6 +31,8 @@ class OrderOut(BaseModel):
     estimated_ready_at: Optional[datetime]
     estimated_ready_minutes: Optional[int]
     items: List[OrderItemOut]
+    # Razorpay payment that paid for it (None if placed while payments were off).
+    payment_id: Optional[str] = None
 
 
 class OrderPlacedOut(OrderOut):
