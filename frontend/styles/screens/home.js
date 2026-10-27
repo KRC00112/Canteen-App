@@ -2,13 +2,8 @@ import { StyleSheet } from 'react-native';
 
 const home = StyleSheet.create({
  container: {
-    display:'flex',
-    flexDirection:'column',
-    justifyContent:'flex-start',
-    width:'100%',
-    height:'100%',
-    // backgroundColor:'green',
-    
+    flex: 1,
+    backgroundColor: '#FFF8E7',
   },
   searchAndFilter:{
     display:'flex',
@@ -18,26 +13,29 @@ const home = StyleSheet.create({
   },
   filterBtn:{
     flex:1,
-    backgroundColor:'white',
+    backgroundColor:'#FFFFFF',
       borderColor: 'black',
       borderStyle:'solid',
-      borderWidth: 2,
+      borderWidth: 3,
       borderRadius:2,
       padding:'5%',
-      boxShadow: '4px 5px rgba(0, 0, 0)',
+      boxShadow: '3px 3px rgba(0, 0, 0, 1)',
       outlineStyle: 'none',
+      display:'flex',
+      justifyContent:'center',
+      alignItems:'center',
+
   },
   itemsList:{
    
   },
   itemListCard:{
-    // backgroundColor:'red',
       backgroundColor:'white',
       borderColor: 'black',
       borderStyle:'solid',
-      borderWidth: 2,
+      borderWidth: 3,
       borderRadius:2,
-      boxShadow: '4px 5px rgba(0, 0, 0)',
+      boxShadow: '5px 5px rgba(0, 0, 0, 1)',
       outlineStyle: 'none',
       marginBottom:10,
       marginEnd:4,
@@ -177,14 +175,17 @@ filterPrefBtn:{
 
 },
 goToCartBtn:{
-      backgroundColor:'white',
+    backgroundColor:'#B8F23D',
       borderColor: 'black',
       borderStyle:'solid',
-      borderWidth: 2,
+      borderWidth: 3,
       borderRadius:2,
       padding:'5%',
-      boxShadow: '4px 5px rgba(0, 0, 0)',
+      boxShadow: '3px 3px rgba(0, 0, 0, 1)',
       outlineStyle: 'none',
+      display:'flex',
+      justifyContent:'center',
+      alignItems:'center',
 
 },
 detailsCard: {

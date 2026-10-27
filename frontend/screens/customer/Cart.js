@@ -11,9 +11,9 @@ function CartItemCard({ item, addingItemsToCart, removingItemsFromCart }) {
         <View style={cart.itemListCard}>
             <View style={cart.itemOverview}>
                 <Text style={cart.itemName}>{item.food}</Text>
-                <Text style={cart.itemPrice}>â‚¹ {item.price}</Text>
+                <Text style={cart.itemPrice}>₹ {item.price}</Text>
                 <View style={[cart.veg, { borderColor: item.food_type==="VEG"?"green":"red" }]}>
-                    <Text style={{ color: item.food_type==="VEG"?"green":"red", fontWeight: "bold" }}>{item.food_type==="VEG"?"â— Veg":"â–² Non-Veg"}</Text>
+                    <Text style={{ color: item.food_type==="VEG"?"green":"red", fontWeight: "bold" }}>{item.food_type==="VEG"?"● Veg":"▲ Non-Veg"}</Text>
                 </View>
             </View>
 
@@ -35,7 +35,7 @@ function CartItemCard({ item, addingItemsToCart, removingItemsFromCart }) {
                 </View>
 
                 <View style={cart.subtotalView}>
-                    <Text style={cart.subtotalText}>â‚¹ {item.price * item.quantity}</Text>
+                    <Text style={cart.subtotalText}>₹ {item.price * item.quantity}</Text>
                 </View>
             </View>
         </View>
@@ -52,6 +52,9 @@ export default function Cart({route}) {
     const token = loggedInUserData?.access_token;
     const [cartItems, setCartItems]=useState({}); //this holds the food id and count unlike itemsInCart that fetches all the other details about the food from the id
 
+
+
+   
 
     useFocusEffect(useCallback(()=>{
 
@@ -120,6 +123,7 @@ export default function Cart({route}) {
 
     } catch (error) {
         console.log("Cannot connect to server:", error);
+    }
 }
 
 
@@ -150,7 +154,28 @@ export default function Cart({route}) {
             }
     }
 
+
+    async function pay(){
+        const response = await fetch(`https://canteen-backend-xzko.onrender.com/payments/orders`,{
+            method: 'POST',
+            headers: {
+                Authorization: `******`
+            }
+        });
+
+        const paymentOrder = await response.json();
+        if (!response.ok) {
+            console.log('Could not create payment order:', paymentOrder.detail);
+            return;
+        }
+
+        console.log('Razorpay order created:', paymentOrder);
+        // Pass paymentOrder to the native Razorpay checkout. Call placeOrder only
+        // from the checkout success handler after payment verification.
+    }
+
     async function placeOrder(){
+
         try{
             const response = await fetch(`https://canteen-backend-xzko.onrender.com/orders`,{
                 method: 'POST',
@@ -186,12 +211,13 @@ export default function Cart({route}) {
         }
 
     }
-    }
 
 
     const totalItems=cartItems.items?.reduce((total, item) => total + item.quantity, 0);
     const totalPrice= cartItems.items?.reduce((total, item) => total + item.price * item.quantity, 0);
 
+
+  
     return (
         <SafeAreaView style={cart.container}>
             <View style={styles.defaultView}>
@@ -215,10 +241,10 @@ export default function Cart({route}) {
                     <View style={cart.checkoutView}>
                         <View>
                             <Text>Total ({totalItems} items)</Text>
-                            <Text style={cart.totalPrice}>â‚¹ {totalPrice}</Text>
+                            <Text style={cart.totalPrice}>₹ {totalPrice}</Text>
                         </View>
-                        <Pressable style={cart.checkoutBtn} onPress={placeOrder}> 
-                            <Text style={cart.checkoutBtnText}>Place Order â†’</Text>
+                        <Pressable style={cart.checkoutBtn} onPress={pay}>
+                            <Text style={cart.checkoutBtnText}>Place Order →</Text>
                         </Pressable>
                     </View>
                 )}

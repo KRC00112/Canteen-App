@@ -8,6 +8,7 @@ class UserProfile(BaseModel):
     id: int
     institute_id: str
     username: str
+    email: Optional[str] = None
     role: str
     account_status: str
     created_at: Optional[datetime]

@@ -16,12 +16,16 @@ export default function CustomerTabs({ route }) {
     <Tab.Navigator
       screenOptions={({ route: tabRoute }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#6D28D9',
-        tabBarInactiveTintColor: '#6B7280',
+        tabBarActiveTintColor: '#111111',
+        tabBarInactiveTintColor: '#666666',
+        tabBarLabelStyle: { fontWeight: '900', fontSize: 11 },
         tabBarStyle: {
-          height: 62+ insets.bottom,
-          paddingTop: 6,
+          height: 68 + insets.bottom,
+          paddingTop: 8,
           paddingBottom: Math.max(insets.bottom, 8),
+          backgroundColor: '#FFD43B',
+          borderTopWidth: 3,
+          borderTopColor: '#111111',
         },
         tabBarIcon: ({ color, size, focused }) => {
           let iconName;

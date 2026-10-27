@@ -4,6 +4,7 @@ const profile = StyleSheet.create({
   container: {
     flex: 1,
     padding: 10,
+    backgroundColor: '#FFF8E7',
   },
   heading: {
     fontSize: 28,
@@ -14,9 +15,9 @@ const profile = StyleSheet.create({
     backgroundColor: 'white',
     borderColor: 'black',
     borderStyle: 'solid',
-    borderWidth: 2,
+    borderWidth: 3,
     borderRadius: 2,
-    boxShadow: '4px 5px rgba(0, 0, 0)',
+    boxShadow: '5px 5px rgba(0, 0, 0, 1)',
     marginBottom: 14,
     marginEnd: 4,
   },

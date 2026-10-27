@@ -5,13 +5,14 @@ import home from "../../../styles/screens/home"
 
 import {useEffect, useState} from "react";
 import { ScrollView } from "react-native";
+import { AdminUserCard } from "../../../components/AdminDataCard";
 
 
 export default function StudentsList({route}){
 
     const loggedInUserData = route?.params?.userData;
     const token = loggedInUserData?.access_token;
-    const [studentsList, setStudentsList]=useState();
+    const [studentsList, setStudentsList]=useState([]);
 
     useEffect(() => {
         async function getUsersList() {
@@ -36,7 +37,7 @@ export default function StudentsList({route}){
                 <ScrollView>
                     {studentsList?.map(student=>{
                         return(
-                            <Text key={student.id}>{student.username}</Text>
+                            <AdminUserCard key={student.id} user={student} />
                            
                         );
                     })}

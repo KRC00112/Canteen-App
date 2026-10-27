@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import activity
 from app.auth.security import utcnow
 from app.database.models import (
     ADMIN,
@@ -75,10 +76,12 @@ def place_order(db: Session, user: User) -> OrderPlacedOut:
     cart_items = sorted(cart.items, key=lambda ci: ci.food_item_id)
     total = Decimal("0")
     order_items = []
+    stock_changes = []
     for ci in cart_items:
         food = ci.food_item
         inv = inventory_service.get_inventory(db, food.id, lock=True)
         inventory_service.ensure_quantity_available(db, inv, user.id, ci.quantity, food.name)
+        stock_changes.append(f"{food.name} x{ci.quantity} (stock {inv.quantity}->{inv.quantity - ci.quantity})")
         inventory_service.set_quantity(inv, inv.quantity - ci.quantity)
         total += food.price * ci.quantity
         order_items.append(OrderItem(food_item_id=food.id, quantity=ci.quantity, price=food.price))
@@ -109,6 +112,10 @@ def place_order(db: Session, user: User) -> OrderPlacedOut:
     cart.items.clear()
     db.commit()
     db.refresh(order)
+    activity.event(
+        f"Order {order.order_id} placed: Rs {total}, ready in ~{cooking_minutes} min; "
+        + ", ".join(stock_changes)
+    )
 
     out = to_order_out(order)
     return OrderPlacedOut(**out.model_dump())
