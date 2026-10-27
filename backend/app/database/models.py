@@ -48,6 +48,11 @@ NOTIFY_CART_ITEM_LOW_STOCK = "CART_ITEM_LOW_STOCK"
 NOTIFY_ORDER_PLACED = "ORDER_PLACED"
 NOTIFY_ITEM_REMOVED = "ITEM_REMOVED"
 
+# Razorpay payment status: order created -> signature verified -> used for one canteen order.
+PAYMENT_CREATED = "CREATED"
+PAYMENT_PAID = "PAID"
+PAYMENT_USED = "USED"
+
 
 class Role(Base):
     __tablename__ = "roles"
@@ -208,6 +213,32 @@ class Order(Base):
     items: Mapped[List["OrderItem"]] = relationship(
         back_populates="order", cascade="all, delete-orphan", order_by="OrderItem.id"
     )
+    payment: Mapped[Optional["Payment"]] = relationship(back_populates="order", uselist=False, lazy="joined")
+
+
+class Payment(Base):
+    """A Razorpay payment for a cart. It must be PAID (signature verified) before
+    POST /orders accepts the cart, and each payment pays for one order only."""
+
+    __tablename__ = "payments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    razorpay_order_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    razorpay_payment_id: Mapped[Optional[str]] = mapped_column(String(64), unique=True)
+    # In paise (Rs 160 = 16000), as Razorpay uses.
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default=PAYMENT_CREATED)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    # The canteen order this payment paid for (set when the order is placed).
+    order_id: Mapped[Optional[int]] = mapped_column(ForeignKey("orders.id"), unique=True)
+
+    user: Mapped[User] = relationship(lazy="joined")
+    order: Mapped[Optional[Order]] = relationship(back_populates="payment")
+
+
 class OrderItem(Base):
     __tablename__ = "order_items"
 

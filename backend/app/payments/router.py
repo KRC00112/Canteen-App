@@ -20,7 +20,9 @@ def create_payment_order(
 
 @router.post("/verify", response_model=PaymentVerifyOut)
 def verify_payment(
-    payment: PaymentVerifyIn, user: User = Depends(get_current_user)
+    payment: PaymentVerifyIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    """Verify the Razorpay signature before the app creates a canteen order."""
-    return service.verify_payment(payment)
+    """Verify the Razorpay signature before the app creates a canteen order. Body: the
+    razorpay_order_id, razorpay_payment_id and razorpay_signature that checkout returns.
+    After this, POST /orders places the order (once per payment)."""
+    return service.verify_payment(db, user, payment)

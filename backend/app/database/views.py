@@ -75,6 +75,7 @@ VIEWS = {
             r.name                                       AS role,
             o.status,
             o.total_amount,
+            p.razorpay_payment_id                        AS payment_id,
             STRING_AGG(f.name || ' x' || oi.quantity, ', ' ORDER BY oi.id) AS items,
             o.created_at                                 AS placed_at,
             o.estimated_ready_at
@@ -83,7 +84,8 @@ VIEWS = {
         JOIN roles r ON r.id = u.role_id
         JOIN order_items oi ON oi.order_id = o.id
         JOIN food_items f ON f.id = oi.food_item_id
-        GROUP BY o.id, u.id, r.name
+        LEFT JOIN payments p ON p.order_id = o.id
+        GROUP BY o.id, u.id, r.name, p.razorpay_payment_id
         ORDER BY o.created_at DESC
     """,
     # Every food item with its category, Veg / Non-Veg type and live stock.

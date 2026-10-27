@@ -33,6 +33,9 @@ services:
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
+      # auto = /orders needs a verified payment once the Razorpay keys are set
+      - key: PAYMENT_REQUIRED
+        value: auto
       # Password recovery emails (Brevo, free). See README "Forgot password".
       - key: BREVO_API_KEY
         sync: false
