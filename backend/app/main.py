@@ -14,6 +14,7 @@ from app.items.router import legacy_router as items_legacy_router
 from app.items.router import router as items_router
 from app.notifications.router import router as notifications_router
 from app.orders.router import router as orders_router
+from app.payments.router import router as payments_router
 from app.staff.router import router as staff_router
 from app.users.router import router as users_router
 
@@ -46,6 +47,7 @@ app.include_router(items_legacy_router)
 app.include_router(inventory_router)
 app.include_router(cart_router)
 app.include_router(orders_router)
+app.include_router(payments_router)
 app.include_router(staff_router)
 app.include_router(notifications_router)
 app.include_router(admin_router)

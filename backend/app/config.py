@@ -39,6 +39,10 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 
+# Razorpay payment orders. The secret must remain server-side.
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
+
 # Stock rules
 # Adding/changing a cart item holds that stock for this long, so nobody else can take it.
 CART_HOLD_MINUTES = int(os.getenv("CART_HOLD_MINUTES", "10"))

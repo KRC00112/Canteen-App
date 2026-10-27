@@ -204,6 +204,7 @@ In Swagger, click **Authorize** and paste the token.
 | PUT | `/cart/items/{item_id}` | User | Change quantity `{quantity}` |
 | DELETE | `/cart/items/{item_id}` | User | Remove item |
 | DELETE | `/cart` | User | Clear cart |
+| POST | `/payments/orders` | User | Create a Razorpay payment order for the current cart |
 | POST | `/orders` | User | Place an order from the cart |
 | GET | `/orders` | User | My order history |
 | GET | `/orders/{order_id}` | User | Order details (e.g. `ORD-20261010-0001`) |
@@ -248,6 +249,12 @@ In Swagger, click **Authorize** and paste the token.
 // POST /orders   (no body)
 // -> { "order_id": "ORD-20261010-0001", "status": "PLACED", "total_amount": 160.0, "items": [...], "message": "Order placed successfully" }
 ```
+
+Payment checkout starts with `POST /payments/orders` (no body). The server calculates the
+cart total in paise and creates the Razorpay order using the server-only secret. It returns
+`key_id`, `order_id`, `amount`, and `currency` for the mobile Razorpay checkout. Only after
+the payment succeeds should the app call `POST /orders` to reserve inventory and create the
+canteen order.
 
 Errors always look like `{ "detail": "..." }`, using these status codes:
 400 (empty cart), 401 (not logged in / bad credentials), 403 (wrong role),
