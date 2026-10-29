@@ -7,6 +7,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
 from app.database.database import Base
+from app.database.views import VIEWS
 
 # Indexes on new columns (create_all only adds indexes for tables it creates).
 NEW_INDEXES = ["CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users (email)"]
@@ -47,8 +48,9 @@ ALWAYS = [
     "UPDATE orders SET payment_method = 'UPI' WHERE payment_method = 'ONLINE'",
     "UPDATE orders SET payment_method = 'CASH_ON_PICKUP' WHERE payment_method = 'CASH'",
 ]
-# PostgreSQL only (SQLite doesn't enforce lengths or support ALTER COLUMN).
-ALWAYS_POSTGRES = [
+# PostgreSQL only (SQLite doesn't enforce lengths or support ALTER COLUMN). The browsing views
+# are dropped first (a column a view uses can't change type); create_views() puts them back.
+ALWAYS_POSTGRES = [f"DROP VIEW IF EXISTS {name}" for name in VIEWS] + [
     "ALTER TABLE orders ALTER COLUMN payment_method TYPE VARCHAR(30)",
     "ALTER TABLE orders ALTER COLUMN payment_method SET DEFAULT 'UPI'",
 ]
@@ -72,5 +74,6 @@ def add_missing_columns(engine: Engine) -> None:
                 conn.execute(text("CREATE INDEX ix_food_items_food_type ON food_items (food_type)"))
         for statement in NEW_INDEXES:
             conn.execute(text(statement))
-        for statement in ALWAYS + (ALWAYS_POSTGRES if engine.dialect.name == "postgresql" else []):
+        # Widen columns before writing the longer values into them.
+        for statement in (ALWAYS_POSTGRES if engine.dialect.name == "postgresql" else []) + ALWAYS:
             conn.execute(text(statement))
