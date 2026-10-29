@@ -33,15 +33,35 @@ ACCOUNT_INACTIVE = "INACTIVE"
 # Self-registered staff wait in this state until the admin approves them.
 ACCOUNT_PENDING = "PENDING"
 
-# Order status (only PLACED is used for Demo 1)
+# Order status: PLACED -> PREPARING -> READY -> SERVED (verified and picked up).
+# Only a PLACED order can be CANCELLED (before the kitchen starts on it).
 ORDER_PLACED = "PLACED"
+ORDER_PREPARING = "PREPARING"
+ORDER_READY = "READY"
+ORDER_SERVED = "SERVED"
+ORDER_CANCELLED = "CANCELLED"
+ORDER_STATUSES = [ORDER_PLACED, ORDER_PREPARING, ORDER_READY, ORDER_SERVED, ORDER_CANCELLED]
+# Orders the kitchen still has to finish.
+ACTIVE_ORDER_STATUSES = [ORDER_PLACED, ORDER_PREPARING, ORDER_READY]
 
-# Payment methods and lifecycle states
-PAYMENT_UPI = "UPI"
-PAYMENT_CASH_ON_PICKUP = "CASH_ON_PICKUP"
-PAYMENT_METHODS = [PAYMENT_UPI, PAYMENT_CASH_ON_PICKUP]
-PAYMENT_PAID = "PAID"
-PAYMENT_PENDING = "PENDING"
+# How an order is paid: UPI (Razorpay, before the order is placed) or CASH_ON_PICKUP (at the
+# counter). These are the values the app sends; ONLINE / CASH are accepted as aliases.
+PAY_ONLINE = "UPI"
+PAY_CASH = "CASH_ON_PICKUP"
+PAYMENT_METHODS = [PAY_ONLINE, PAY_CASH]
+PAYMENT_METHOD_ALIASES = {"ONLINE": PAY_ONLINE, "CASH": PAY_CASH}
+
+# Order payment status. PENDING = cash not collected yet; an order is served only when PAID.
+# A cancelled order's payment goes REFUND_PENDING -> REFUNDED, or CANCELLED if nothing was paid.
+ORDER_PAYMENT_PENDING = "PENDING"
+ORDER_PAYMENT_PAID = "PAID"
+ORDER_PAYMENT_REFUND_PENDING = "REFUND_PENDING"
+ORDER_PAYMENT_REFUNDED = "REFUNDED"
+ORDER_PAYMENT_CANCELLED = "CANCELLED"
+
+# Order timeline events (the statuses above, plus payment events).
+EVENT_CASH_RECEIVED = "CASH_RECEIVED"
+EVENT_REFUNDED = "REFUNDED"
 
 # Every food item is either veg or non-veg.
 VEG = "VEG"
@@ -54,11 +74,20 @@ NOTIFY_CART_ITEM_SOLD_OUT = "CART_ITEM_SOLD_OUT"
 NOTIFY_CART_ITEM_LOW_STOCK = "CART_ITEM_LOW_STOCK"
 NOTIFY_ORDER_PLACED = "ORDER_PLACED"
 NOTIFY_ITEM_REMOVED = "ITEM_REMOVED"
+NOTIFY_ORDER_PREPARING = "ORDER_PREPARING"
+NOTIFY_ORDER_READY = "ORDER_READY"
+NOTIFY_ORDER_SERVED = "ORDER_SERVED"
+NOTIFY_ORDER_CANCELLED = "ORDER_CANCELLED"
+NOTIFY_PAYMENT_RECEIVED = "PAYMENT_RECEIVED"
+NOTIFY_REFUNDED = "REFUNDED"
 
 # Razorpay payment status: order created -> signature verified -> used for one canteen order.
+# If that order is cancelled: REFUND_PENDING -> REFUNDED.
 PAYMENT_CREATED = "CREATED"
 PAYMENT_PAID = "PAID"
 PAYMENT_USED = "USED"
+PAYMENT_REFUND_PENDING = "REFUND_PENDING"
+PAYMENT_REFUNDED = "REFUNDED"
 
 
 class Role(Base):
@@ -212,15 +241,26 @@ class Order(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default=ORDER_PLACED, nullable=False)
-    payment_method: Mapped[str] = mapped_column(String(30), default=PAYMENT_UPI, nullable=False)
-    payment_status: Mapped[str] = mapped_column(String(20), default=PAYMENT_PAID, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    # Based on the slowest item's average cooking time.
+    # Based on the slowest item's average cooking time (reset when the kitchen starts).
     estimated_ready_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    payment_method: Mapped[str] = mapped_column(String(30), nullable=False, server_default=PAY_ONLINE)
+    payment_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default=ORDER_PAYMENT_PENDING
+    )
+    paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    # Cash handed over at the counter (may be more than the total; the rest is change).
+    cash_received: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2))
+    # Shown only to the customer. Staff need it to take cash and to hand over the food,
+    # so the order goes to the person who placed it.
+    pickup_code: Mapped[Optional[str]] = mapped_column(String(6))
 
     user: Mapped[User] = relationship(back_populates="orders", lazy="joined")
     items: Mapped[List["OrderItem"]] = relationship(
         back_populates="order", cascade="all, delete-orphan", order_by="OrderItem.id"
+    )
+    events: Mapped[List["OrderEvent"]] = relationship(
+        back_populates="order", cascade="all, delete-orphan", order_by="OrderEvent.id", lazy="selectin"
     )
     payment: Mapped[Optional["Payment"]] = relationship(back_populates="order", uselist=False, lazy="joined")
 
@@ -243,6 +283,9 @@ class Payment(Base):
     verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     # The canteen order this payment paid for (set when the order is placed).
     order_id: Mapped[Optional[int]] = mapped_column(ForeignKey("orders.id"), unique=True)
+    # Razorpay refund, when the order was cancelled.
+    refund_id: Mapped[Optional[str]] = mapped_column(String(64))
+    refunded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     user: Mapped[User] = relationship(lazy="joined")
     order: Mapped[Optional[Order]] = relationship(back_populates="payment")
@@ -260,6 +303,26 @@ class OrderItem(Base):
 
     order: Mapped[Order] = relationship(back_populates="items")
     food_item: Mapped[FoodItem] = relationship(lazy="joined")
+
+
+class OrderEvent(Base):
+    """One step in an order's timeline: PLACED, PREPARING, READY, SERVED, CANCELLED,
+    CASH_RECEIVED or REFUNDED, with who did it."""
+
+    __tablename__ = "order_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[int] = mapped_column(
+        ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    event: Mapped[str] = mapped_column(String(20), nullable=False)
+    note: Mapped[Optional[str]] = mapped_column(String(255))
+    # None when the system did it (e.g. an automatic refund).
+    changed_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    order: Mapped[Order] = relationship(back_populates="events")
+    changed_by: Mapped[Optional[User]] = relationship(lazy="joined")
 
 
 class StockAlert(Base):
@@ -290,7 +353,11 @@ class Notification(Base):
     food_item_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("food_items.id", ondelete="CASCADE")
     )
+    # The order an order/payment notification is about.
+    order_id: Mapped[Optional[int]] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"))
     type: Mapped[str] = mapped_column(String(30), nullable=False)
     message: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     read_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+    order: Mapped[Optional[Order]] = relationship(lazy="joined")

@@ -31,10 +31,14 @@ from app.items import service as items_service
 
 class NotificationOut(BaseModel):
     id: int
-    # BACK_IN_STOCK | CART_ITEM_SOLD_OUT | CART_ITEM_LOW_STOCK | ORDER_PLACED | ITEM_REMOVED
+    # BACK_IN_STOCK | CART_ITEM_SOLD_OUT | CART_ITEM_LOW_STOCK | ITEM_REMOVED
+    # | ORDER_PLACED | ORDER_PREPARING | ORDER_READY | ORDER_SERVED | ORDER_CANCELLED
+    # | PAYMENT_RECEIVED | REFUNDED
     type: str
     message: str
     food_id: Optional[int]
+    # The order it is about (order/payment notifications), e.g. ORD-20261010-0001
+    order_id: Optional[str] = None
     created_at: Optional[datetime]
     read: bool
 
@@ -106,6 +110,7 @@ def to_out(n: Notification) -> NotificationOut:
         type=n.type,
         message=n.message,
         food_id=n.food_item_id,
+        order_id=n.order.order_id if n.order else None,
         created_at=n.created_at,
         read=n.read_at is not None,
     )
