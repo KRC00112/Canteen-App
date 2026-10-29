@@ -24,7 +24,7 @@ export default function Home({route}){
         if (role === "STUDENT" || role === "FACULTY") {
             navigation.replace("CustomerTabs", {userData: route.params?.userData});
         } else if (role === "CANTEEN_STAFF") {
-            navigation.replace("StaffHome", {userData: route.params?.userData});
+            navigation.replace("StaffTabs", {userData: route.params?.userData});
         } else if (role === "ADMIN") {
             navigation.replace("AdminTabs", {userData: route.params?.userData});
         }

@@ -74,6 +74,7 @@ export default function Login(){
                     <TextInput 
                         style={styles.inputText}
                         placeholder='Enter Institute ID...'
+                        placeholderTextColor="#666666"
                         onChangeText={value=>setInstituteID(value)}
                     />
                 </View>
@@ -82,6 +83,7 @@ export default function Login(){
                     <TextInput 
                         style={styles.inputText}
                         placeholder='Enter Password...'
+                        placeholderTextColor="#666666"
                         secureTextEntry={false}
                         onChangeText={value=>setPassword(value)}
                     />

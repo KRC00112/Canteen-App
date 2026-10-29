@@ -18,7 +18,7 @@ import {
 } from 'react-native-safe-area-context';
 import CustomerTabs from './screens/customer/CustomerTabs';
 import AdminTabs from './screens/admin/AdminTabs';
-import StaffHome from './screens/staff/StaffHome';
+import StaffTabs from './screens/staff/StaffTabs';
 import Orders from './screens/customer/Orders';
 
 
@@ -56,8 +56,8 @@ const RootStack = createNativeStackNavigator({
         headerShown:false,
       }
     },
-    StaffHome: {
-      screen: StaffHome,
+    StaffTabs: {
+      screen: StaffTabs,
       options:{
         headerShown:false,
       }
@@ -83,4 +83,3 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
-

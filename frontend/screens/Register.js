@@ -91,6 +91,7 @@ export default function Register(){
                     <TextInput 
                         style={styles.inputText}
                         placeholder='Enter Institute ID...'
+                        placeholderTextColor="#666666"
                         onChangeText={value=>setInstituteID(value)}
                     />
                 </View>
@@ -99,6 +100,7 @@ export default function Register(){
                     <TextInput 
                         style={styles.inputText}
                         placeholder='Enter Username...'
+                        placeholderTextColor="#666666"
                         onChangeText={value=>setUsername(value)}
                     />
                 </View>
@@ -119,6 +121,7 @@ export default function Register(){
                     <TextInput 
                         style={styles.inputText}
                         placeholder='Enter Password...'
+                        placeholderTextColor="#666666"
                         secureTextEntry={false}
                         onChangeText={value=>setPassword(value)}
                     />
@@ -131,6 +134,7 @@ export default function Register(){
                     <TextInput 
                         style={[styles.inputText, (focus===true && password!==confirmPassword) && register.inputTextMismatch]}
                         placeholder='Enter Password Again...'
+                        placeholderTextColor="#666666"
                         secureTextEntry={false}
                         onFocus={()=>setFocus(true)}
                         onChangeText={value=>setConfirmPassword(value)}

@@ -170,8 +170,8 @@ function FilterForm({categories, handleCategorySelection, selectedCategories, ha
                 <View>
                     <Text style={{fontWeight:'bold'}}>Item price range: </Text>
                     <View style={home.itemsGrouping}>
-                        <TextInput style={[styles.inputText, {fontWeight:'bold'}]} placeholder="Minimum..." onChangeText={value=>handleMinPriceSelection(value)}/>
-                        <TextInput style={[styles.inputText, {fontWeight:'bold'}]} placeholder="Maximum..." onChangeText={value=>handleMaxPriceSelection(value)}/>
+                        <TextInput style={[styles.inputText, {fontWeight:'bold'}]} placeholder="Minimum..." placeholderTextColor="#666666" onChangeText={value=>handleMinPriceSelection(value)}/>
+                        <TextInput style={[styles.inputText, {fontWeight:'bold'}]} placeholder="Maximum..." placeholderTextColor="#666666" onChangeText={value=>handleMaxPriceSelection(value)}/>
                     </View>
                 </View>
                 {/* <Pressable style={styles.button}><Text style={styles.buttonText}>Apply</Text></Pressable> */}
@@ -397,6 +397,7 @@ async function removingItemsFromCart(id) {
                         <TextInput
                             style={[styles.inputText, {flex:7}]}
                             placeholder='Enter Food Name...'
+                            placeholderTextColor="#666666"
                             onChangeText={value=>handleSearchInput(value)}
                         />
                         <Pressable style={home.filterBtn} onPress={handleFilterFormVisibility}>

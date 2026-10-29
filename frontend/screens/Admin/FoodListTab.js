@@ -105,13 +105,13 @@ function FoodItemForm({ item, token, onSaved, onClose }) {
           </View>
 
           <Text style={styles.formInputLabel}>Name *</Text>
-          <TextInput value={form.name} onChangeText={value => updateField('name', value)} style={styles.inputText} placeholder="Paneer wrap" />
+          <TextInput value={form.name} onChangeText={value => updateField('name', value)} style={styles.inputText} placeholder="Paneer wrap" placeholderTextColor="#666666" />
           <Text style={styles.formInputLabel}>Price (INR) *</Text>
-          <TextInput value={form.price} onChangeText={value => updateField('price', value)} style={styles.inputText} placeholder="60" keyboardType="decimal-pad" />
+          <TextInput value={form.price} onChangeText={value => updateField('price', value)} style={styles.inputText} placeholder="60" placeholderTextColor="#666666" keyboardType="decimal-pad" />
           <Text style={styles.formInputLabel}>Category *</Text>
-          <TextInput value={form.category} onChangeText={value => updateField('category', value)} style={styles.inputText} placeholder="Snacks" />
+          <TextInput value={form.category} onChangeText={value => updateField('category', value)} style={styles.inputText} placeholder="Snacks" placeholderTextColor="#666666" />
           <Text style={styles.formInputLabel}>Description</Text>
-          <TextInput value={form.description} onChangeText={value => updateField('description', value)} style={[styles.inputText, styles.multilineInput]} placeholder="Short description" multiline />
+          <TextInput value={form.description} onChangeText={value => updateField('description', value)} style={[styles.inputText, styles.multilineInput]} placeholder="Short description" placeholderTextColor="#666666" multiline />
           <Text style={styles.formInputLabel}>Food type</Text>
           <View style={styles.formChoiceRow}>
             {['VEG', 'NON_VEG'].map(type => (
@@ -121,9 +121,9 @@ function FoodItemForm({ item, token, onSaved, onClose }) {
             ))}
           </View>
           <Text style={styles.formInputLabel}>Ingredients (comma separated)</Text>
-          <TextInput value={form.ingredients} onChangeText={value => updateField('ingredients', value)} style={styles.inputText} placeholder="Paneer, wrap, onion" />
+          <TextInput value={form.ingredients} onChangeText={value => updateField('ingredients', value)} style={styles.inputText} placeholder="Paneer, wrap, onion" placeholderTextColor="#666666" />
           <Text style={styles.formInputLabel}>Cooking time (minutes) *</Text>
-          <TextInput value={form.avg_cooking_time_minutes} onChangeText={value => updateField('avg_cooking_time_minutes', value)} style={styles.inputText} placeholder="10" keyboardType="number-pad" />
+          <TextInput value={form.avg_cooking_time_minutes} onChangeText={value => updateField('avg_cooking_time_minutes', value)} style={styles.inputText} placeholder="10" placeholderTextColor="#666666" keyboardType="number-pad" />
 
           <Text style={styles.formHint}>Stock and availability are managed by canteen staff.</Text>
           <Pressable onPress={saveItem} disabled={saving} style={[styles.button, saving && styles.buttonDisabled]}>
