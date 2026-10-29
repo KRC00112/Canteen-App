@@ -136,8 +136,37 @@ def me(user: User = Depends(get_current_user)):
     return to_profile(user)
 
 
+def _logout(db: Session, session: UserSession, portal=None) -> dict:
+    service.logout(db, session, portal)
+    return {"message": "Logged out successfully"}
+
+
+@router.post("/student/logout")
+def logout_student(session: UserSession = Depends(get_current_session), db: Session = Depends(get_db)):
+    """Student logout: ends this login session; the token stops working immediately.
+    Other account types get 403 telling them which logout to use."""
+    return _logout(db, session, STUDENT)
+
+
+@router.post("/faculty/logout")
+def logout_faculty(session: UserSession = Depends(get_current_session), db: Session = Depends(get_db)):
+    """Faculty logout. Other account types get 403 telling them which logout to use."""
+    return _logout(db, session, FACULTY)
+
+
+@router.post("/staff/logout")
+def logout_staff(session: UserSession = Depends(get_current_session), db: Session = Depends(get_db)):
+    """Canteen staff logout. Other account types get 403 telling them which logout to use."""
+    return _logout(db, session, CANTEEN_STAFF)
+
+
+@router.post("/admin/logout")
+def logout_admin(session: UserSession = Depends(get_current_session), db: Session = Depends(get_db)):
+    """Main canteen admin logout. Other account types get 403 telling them which logout to use."""
+    return _logout(db, session, ADMIN)
+
+
 @router.post("/logout")
 def logout(session: UserSession = Depends(get_current_session), db: Session = Depends(get_db)):
-    """End this login session. The token stops working immediately."""
-    service.logout(db, session)
-    return {"message": "Logged out successfully"}
+    """Logout for any account type: ends this login session; the token stops working immediately."""
+    return _logout(db, session)

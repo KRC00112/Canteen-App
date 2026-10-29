@@ -16,6 +16,7 @@ from app.database.models import (
     ACCOUNT_ACTIVE,
     ACCOUNT_INACTIVE,
     CANTEEN_STAFF,
+    ORDER_CANCELLED,
     NOTIFY_ITEM_REMOVED,
     CartItem,
     Category,
@@ -64,11 +65,14 @@ class AdminPaymentOut(BaseModel):
     amount: float
     currency: str
     # CREATED (checkout started) | PAID (verified) | USED (paid for an order)
+    # | REFUND_PENDING / REFUNDED (that order was cancelled)
     status: str
     created_at: datetime
     verified_at: Optional[datetime]
     # Canteen order it paid for, e.g. ORD-20261027-0003
     order_id: Optional[str]
+    refund_id: Optional[str] = None
+    refunded_at: Optional[datetime] = None
 
 
 class AdminNotificationOut(NotificationOut):
@@ -161,7 +165,7 @@ def get_user_detail(db: Session, user_id: int) -> AdminUserDetail:
         **summary.model_dump(),
         sessions=[_session_out(s) for s in sessions],
         orders=[to_order_out(o) for o in orders],
-        total_spent=round(float(sum(o.total_amount for o in orders)), 2),
+        total_spent=round(float(sum(o.total_amount for o in orders if o.status != ORDER_CANCELLED)), 2),
         notifications=[to_out(n) for n in notifications],
         stock_alerts=[
             StockAlertOut(food_id=a.food_item_id, food=a.food_item.name, created_at=a.created_at)
@@ -211,6 +215,8 @@ def list_payments(db: Session, payment_status: Optional[str] = None) -> List[Adm
             created_at=p.created_at,
             verified_at=p.verified_at,
             order_id=p.order.order_id if p.order else None,
+            refund_id=p.refund_id,
+            refunded_at=p.refunded_at,
         )
         for p in db.scalars(stmt).unique()
     ]

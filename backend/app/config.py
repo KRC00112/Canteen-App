@@ -54,6 +54,13 @@ def payment_required() -> bool:
         return False
     return bool(RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET)
 
+
+# Cash orders are paid at the counter; staff record the cash with the customer's pickup code,
+# and the food is only handed over once it is paid. A customer can have at most this many
+# unpaid cash orders open at once, so nobody can tie up stock with orders they never pay for.
+CASH_PAYMENTS_ENABLED = os.getenv("CASH_PAYMENTS_ENABLED", "true").strip().lower() in ("true", "1", "yes")
+CASH_MAX_UNPAID_ORDERS = int(os.getenv("CASH_MAX_UNPAID_ORDERS", "1"))
+
 # Stock rules
 # Adding/changing a cart item holds that stock for this long, so nobody else can take it.
 CART_HOLD_MINUTES = int(os.getenv("CART_HOLD_MINUTES", "10"))

@@ -1,5 +1,5 @@
-"""Razorpay payments: create an order for the cart, verify the payment signature, and let
-POST /orders use each verified payment once."""
+"""Razorpay payments: create an order for the cart, verify the payment signature, let
+POST /orders use each verified payment once, and refund it if that order is cancelled."""
 import base64
 import hashlib
 import hmac
@@ -16,8 +16,34 @@ from sqlalchemy.orm import Session
 from app import activity
 from app.auth.security import utcnow
 from app.config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
-from app.database.models import PAYMENT_CREATED, PAYMENT_PAID, Cart, Payment, User
+from app.database.models import (
+    PAYMENT_CREATED,
+    PAYMENT_PAID,
+    PAYMENT_REFUND_PENDING,
+    PAYMENT_REFUNDED,
+    Cart,
+    Payment,
+    User,
+)
 from app.payments.schemas import PaymentOrderOut, PaymentVerifyIn, PaymentVerifyOut
+
+
+def _razorpay_post(path: str, body: dict) -> dict:
+    """POST to the Razorpay API with the server-only key. Raises HTTPError / URLError."""
+    credentials = base64.b64encode(
+        f"{RAZORPAY_KEY_ID}:{RAZORPAY_KEY_SECRET}".encode("utf-8")
+    ).decode("ascii")
+    request = Request(
+        f"https://api.razorpay.com/v1{path}",
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Basic {credentials}",
+        },
+        method="POST",
+    )
+    with urlopen(request, timeout=15) as response:
+        return json.load(response)
 
 
 def create_payment_order(db: Session, user: User) -> PaymentOrderOut:
@@ -38,30 +64,16 @@ def create_payment_order(db: Session, user: User) -> PaymentOrderOut:
             detail="Cart total must be greater than zero",
         )
 
-    payload = json.dumps(
-        {
-            "amount": amount,
-            "currency": "INR",
-            "receipt": f"cart-{user.id}-{uuid.uuid4().hex[:16]}",
-            "notes": {"user_id": str(user.id)},
-        }
-    ).encode("utf-8")
-    credentials = base64.b64encode(
-        f"{RAZORPAY_KEY_ID}:{RAZORPAY_KEY_SECRET}".encode("utf-8")
-    ).decode("ascii")
-    request = Request(
-        "https://api.razorpay.com/v1/orders",
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Basic {credentials}",
-        },
-        method="POST",
-    )
-
     try:
-        with urlopen(request, timeout=15) as response:
-            razorpay_order = json.load(response)
+        razorpay_order = _razorpay_post(
+            "/orders",
+            {
+                "amount": amount,
+                "currency": "INR",
+                "receipt": f"cart-{user.id}-{uuid.uuid4().hex[:16]}",
+                "notes": {"user_id": str(user.id)},
+            },
+        )
     except HTTPError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -177,3 +189,27 @@ def take_verified_payment(db: Session, user: User, total: Decimal) -> Payment:
             f"Rs {to_paise(total) / 100:g}. Change the cart back to what you paid for",
         )
     return record
+
+
+def refund(payment: Payment) -> bool:
+    """Ask Razorpay to refund a REFUND_PENDING payment in full. True if Razorpay accepted it
+    (the payment is then REFUNDED); False if it failed, so it stays REFUND_PENDING and staff
+    or the admin can retry. The caller commits."""
+    if payment.status != PAYMENT_REFUND_PENDING:
+        return payment.status == PAYMENT_REFUNDED
+    if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
+        activity.event(f"Refund of {payment.razorpay_payment_id} not sent: payment service is not configured")
+        return False
+    try:
+        result = _razorpay_post(
+            f"/payments/{payment.razorpay_payment_id}/refund",
+            {"amount": payment.amount, "notes": {"order_id": str(payment.order_id)}},
+        )
+    except (OSError, ValueError) as exc:  # HTTP error, network error/timeout, bad JSON
+        activity.event(f"Refund of {payment.razorpay_payment_id} FAILED: {exc}")
+        return False
+    payment.refund_id = result.get("id")
+    payment.refunded_at = utcnow()
+    payment.status = PAYMENT_REFUNDED
+    activity.event(f"Refunded {payment.razorpay_payment_id}: Rs {payment.amount / 100:g} ({payment.refund_id})")
+    return True

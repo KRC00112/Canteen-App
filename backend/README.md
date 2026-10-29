@@ -17,7 +17,7 @@ app/
   items/             Food items, categories, search/filter (Veg/Non-Veg, price)
   inventory/         Stock rules: cart holds, low-stock limits, stock status
   cart/              Cart and cart items
-  orders/            Place an order, order history, order details
+  orders/            Place an order, order history, order details, the order lifecycle (stages, cash, cancel, refunds)
   staff/             Staff-only incoming orders, inventory and food item editing
   notifications/     In-app notifications and "Notify me" stock alerts
 seed.py              Seeds roles, staff and admin accounts, food items
@@ -170,7 +170,10 @@ To change someone's role, update their `role_id` in the `users` table
    The old `POST /auth/register` (creates a student) and `POST /auth/login` (any account) still work.
 2. Send the token on every protected request:
    `Authorization: Bearer <access_token>`
-3. `POST /auth/logout` ends the session on the server; the app should also delete the stored token.
+3. Log out with the endpoint for the account type: `POST /auth/student/logout`, `/auth/faculty/logout`,
+   `/auth/staff/logout` or `/auth/admin/logout` (no body, send the token). It ends that session on the
+   server, so the token stops working (401), and the app should also delete the stored token. Using
+   the wrong one returns 403, like the logins. `POST /auth/logout` still works for any account type.
 
 In Swagger, click **Authorize** and paste the token.
 
@@ -191,7 +194,11 @@ In Swagger, click **Authorize** and paste the token.
 | POST | `/auth/login` | – | Login for any account type (staff/admin use this) |
 | POST | `/auth/register` | – | *Deprecated*: same as `/auth/student/register` |
 | GET | `/auth/me` | User | Current user |
-| POST | `/auth/logout` | User | End the current session (token stops working) |
+| POST | `/auth/student/logout` | STUDENT | End the current session (token stops working). Other account types get 403 |
+| POST | `/auth/faculty/logout` | FACULTY | Faculty logout; other account types get 403 |
+| POST | `/auth/staff/logout` | CANTEEN_STAFF | Staff logout; other account types get 403 |
+| POST | `/auth/admin/logout` | ADMIN | Admin logout; other account types get 403 |
+| POST | `/auth/logout` | User | Logout for any account type (older app builds) |
 | GET | `/users` | CANTEEN_STAFF / ADMIN | All registered users with login status (`is_logged_in`, `active_sessions`, `last_login_at`, ...); filter with `?role=STUDENT` / `FACULTY` / ... |
 | GET | `/users/logged-in` | CANTEEN_STAFF / ADMIN | All currently logged-in users and their sessions |
 | GET | `/users/me` | User | Profile |
@@ -206,10 +213,17 @@ In Swagger, click **Authorize** and paste the token.
 | DELETE | `/cart` | User | Clear cart |
 | POST | `/payments/orders` | User | Create a Razorpay payment order for the current cart |
 | POST | `/payments/verify` | User | Verify a successful Razorpay payment signature; then `POST /orders` (needs it when payments are on) |
-| POST | `/orders` | User | Place an order from the cart |
+| POST | `/orders` | User | Place an order from the cart. Optional body `{"payment_method": "UPI"}` (default) or `"CASH_ON_PICKUP"` (`ONLINE` / `CASH` also accepted) |
 | GET | `/orders` | User | My order history |
-| GET | `/orders/{order_id}` | User | Order details (e.g. `ORD-20261010-0001`) |
-| GET | `/staff/orders` | CANTEEN_STAFF / ADMIN | Incoming orders (`?status=PLACED`) |
+| GET | `/orders/{order_id}` | User | Order details (e.g. `ORD-20261010-0001`): status, payment, `pickup_code`, `can_cancel`, `timeline` |
+| POST | `/orders/{order_id}/cancel` | User | Cancel my order `{reason?}`. Only while `PLACED`; stock goes back, payment refunded |
+| GET | `/staff/orders` | CANTEEN_STAFF / ADMIN | Incoming orders (`?status=PLACED` / `PREPARING` / `READY` / `SERVED` / `CANCELLED`) |
+| POST | `/staff/orders/{order_id}/preparing` | CANTEEN_STAFF | `PLACED` → `PREPARING` |
+| POST | `/staff/orders/{order_id}/ready` | CANTEEN_STAFF | `PREPARING` → `READY` |
+| POST | `/staff/orders/{order_id}/cash-payment` | CANTEEN_STAFF | Record cash `{pickup_code, amount_received}`; returns `change_given` |
+| POST | `/staff/orders/{order_id}/serve` | CANTEEN_STAFF | `READY` → `SERVED` `{pickup_code}`; only when paid |
+| POST | `/staff/orders/{order_id}/cancel` | CANTEEN_STAFF | Cancel a `PLACED` order `{reason?}` (e.g. an item ran out) |
+| POST | `/staff/orders/{order_id}/refund` | CANTEEN_STAFF / ADMIN | Cancelled order with a pending refund: retry the Razorpay refund, or record cash handed back `{pickup_code}` |
 | GET | `/staff/inventory` | CANTEEN_STAFF / ADMIN | Exact stock, units held in carts, units ordered in the last 24 h |
 | PUT | `/staff/inventory/{food_id}` | CANTEEN_STAFF | Set stock `{quantity, available?}` (restock). Staff only |
 | GET | `/staff/carts` | CANTEEN_STAFF | Every customer's current cart, with stock holds. Staff only |
@@ -217,7 +231,7 @@ In Swagger, click **Authorize** and paste the token.
 | GET | `/admin/users/{user_id}` | ADMIN | Full customer details: profile, login history, orders, total spent, notifications, stock alerts |
 | GET | `/admin/orders` | ADMIN | Every order (`?status=PLACED`, `?user_id=3`) |
 | GET | `/admin/orders/{order_id}` | ADMIN | Any order with the customer who placed it |
-| GET | `/admin/payments` | ADMIN | Every Razorpay payment: customer, amount, status (`CREATED` / `PAID` / `USED`), the order it paid for |
+| GET | `/admin/payments` | ADMIN | Every Razorpay payment: customer, amount, status (`CREATED` / `PAID` / `USED` / `REFUND_PENDING` / `REFUNDED`), the order it paid for, `refund_id` |
 | GET | `/admin/sessions` | ADMIN | Login history of every account: device, IP, login/logout times (`?active_only=true`) |
 | GET | `/admin/notifications` | ADMIN | Notifications sent to every user (`?user_id=3`) |
 | GET | `/admin/stock-alerts` | ADMIN | Every customer's "Notify me" request |
@@ -248,8 +262,18 @@ In Swagger, click **Authorize** and paste the token.
 // POST /cart/items
 { "food_id": 1, "quantity": 2 }
 
-// POST /orders   (no body)
-// -> { "order_id": "ORD-20261010-0001", "status": "PLACED", "total_amount": 160.0, "items": [...], "message": "Order placed successfully" }
+// POST /orders   (no body = UPI, or { "payment_method": "CASH_ON_PICKUP" })
+// -> { "order_id": "ORD-20261010-0001", "status": "PLACED", "total_amount": 160.0, "items": [...],
+//      "payment_method": "CASH_ON_PICKUP", "payment_status": "PENDING", "pickup_code": "4821", "can_cancel": true,
+//      "timeline": [{ "event": "PLACED", "at": "...", "by": "umar", "by_role": "STUDENT", "note": "CASH_ON_PICKUP, Rs 160" }],
+//      "message": "Order placed successfully" }
+
+// POST /staff/orders/ORD-20261010-0001/cash-payment
+{ "pickup_code": "4821", "amount_received": 200 }
+// -> { ..., "payment_status": "PAID", "cash_received": 200.0, "change_given": 40.0 }
+
+// POST /staff/orders/ORD-20261010-0001/serve
+{ "pickup_code": "4821" }
 ```
 
 ### Payments (Razorpay)
@@ -275,11 +299,59 @@ In Swagger, click **Authorize** and paste the token.
 
 `PAYMENT_REQUIRED` (env): `auto` (default) = `/orders` needs a payment only when the Razorpay
 keys are set, so ordering keeps working for testing before payments are configured; `true` /
-`false` force it. `GET /admin/payments` (`?status=CREATED|PAID|USED`) lists every payment.
+`false` force it. A UPI order placed while payments are off is `PENDING` and is paid at the
+counter like a cash order. `GET /admin/payments` (`?status=CREATED|PAID|USED|REFUND_PENDING|REFUNDED`)
+lists every payment.
+
+## Order lifecycle, cash payments and cancellation
+
+```
+PLACED ──staff──> PREPARING ──staff──> READY ──staff + pickup code + PAID──> SERVED
+   │
+   └─ customer or staff ──> CANCELLED   (only while PLACED)
+```
+
+| Status | Meaning | Customer notification |
+|---|---|---|
+| `PLACED` | Order received; the customer can still cancel | `ORDER_PLACED` (with pickup code; "pay Rs X at the counter" for cash) |
+| `PREPARING` | Kitchen started; no cancelling from here. `estimated_ready_at` is reset from now | `ORDER_PREPARING` |
+| `READY` | Waiting at the counter | `ORDER_READY` (and "pay Rs X in cash" if not paid) |
+| `SERVED` | Verified and picked up | `ORDER_SERVED` |
+| `CANCELLED` | Cancelled while `PLACED` | `ORDER_CANCELLED` (+ `REFUNDED` once the money is back) |
+
+Stages only move forward one step at a time; anything else is a 409 that names the current status.
+Every step is stored in `order_events` and returned as the order's `timeline` (what, when, who).
+Notifications carry `order_id`, so the app can open that order.
+
+**Pickup code.** Every order gets a 4-digit `pickup_code`, returned only to the customer who placed
+it (`POST /orders`, `GET /orders/{id}`), never in staff or admin order lists. The customer shows it
+at the counter; staff need it to record cash and to serve, so the food (and any cash refund) goes
+to the person who ordered. A wrong code is a 403.
+
+**How payment is verified before serving.** `payment_status` is `PENDING`, `PAID`,
+`REFUND_PENDING`, `REFUNDED` or `CANCELLED` (nothing was paid). `serve` returns **402** unless it is `PAID`.
+- UPI (`payment_method: "UPI"`): `PAID` when the order is placed, because `POST /orders` only accepts a payment whose Razorpay
+  signature was verified server-side (`/payments/verify`) for exactly the cart total.
+- Cash (`payment_method: "CASH_ON_PICKUP"`): `PAID` only when staff call `cash-payment` with the customer's pickup code and
+  `amount_received` ≥ total (the response gives `change_given`). It can be done at any stage before
+  serving, and only once. The staff member, time, amount and change are stored on the order and in
+  its timeline. The customer immediately gets a `PAYMENT_RECEIVED` notification ("Not you? Tell the
+  canteen staff"), so cash recorded without them paying gets noticed.
+- To stop people blocking stock with cash orders they never pay for, a customer can have at most
+  `CASH_MAX_UNPAID_ORDERS` (default 1) unpaid cash orders open; the next one is a 409.
+  `CASH_PAYMENTS_ENABLED=false` turns cash off.
+
+**Cancelling** (`POST /orders/{id}/cancel`, or staff `POST /staff/orders/{id}/cancel`): only while
+`PLACED`, otherwise 409. The stock goes back to the inventory. If it was paid:
+- online: refunded through Razorpay straight away (`payment_status` `REFUNDED`, Razorpay `refund_id`
+  in `/admin/payments`). If Razorpay fails, it stays `REFUND_PENDING`; retry with
+  `POST /staff/orders/{id}/refund`.
+- cash: `REFUND_PENDING` until staff hand the cash back and record it with
+  `POST /staff/orders/{id}/refund` `{pickup_code}`.
 
 Errors always look like `{ "detail": "..." }`, using these status codes:
-400 (empty cart), 401 (not logged in / bad credentials), 403 (wrong role),
-404 (not found), 409 (duplicate / out of stock), 422 (invalid input).
+400 (empty cart), 401 (not logged in / bad credentials), 402 (not paid), 403 (wrong role / wrong
+pickup code), 404 (not found), 409 (duplicate / out of stock / wrong order stage), 422 (invalid input).
 
 ## Forgot password (email code)
 
@@ -340,7 +412,8 @@ Read-only views are created automatically (PostgreSQL). In pgAdmin they're under
 |---|---|
 | `users_overview` | Every registered user and their login status: `is_logged_in`, `active_sessions`, `total_logins`, `last_login_at`, `last_seen_at` |
 | `logged_in_users` | Only the users logged in right now, one row per active login (device, IP, login time) |
-| `orders_overview` | Every order, newest first: customer, total, Razorpay `payment_id`, items (`Veg Biryani x2, ...`), placed / ready times |
+| `orders_overview` | Every order, newest first: customer, status, total, payment method / status, cash received, Razorpay `payment_id`, items (`Veg Biryani x2, ...`), placed / ready times |
+| `order_timeline` | Every order step (placed, preparing, ready, served, cancelled, cash received, refunded), who did it and when |
 | `admin_account` | The one permanent main canteen admin account and its login status |
 | `items_overview` | Every food item with category, `food_type` (VEG / NON_VEG), price, cooking time, ingredients and stock |
 
@@ -396,6 +469,8 @@ and all but one person fail at checkout. Instead:
    - an item they tapped **Notify me** on is available again (`BACK_IN_STOCK`)
    - an item in their cart sold out or not enough is left once their hold expired (`CART_ITEM_SOLD_OUT` / `CART_ITEM_LOW_STOCK`)
    - their order was placed, with the estimated ready time (`ORDER_PLACED`)
+   - each order stage, payment and refund (`ORDER_PREPARING`, `ORDER_READY`, `ORDER_SERVED`,
+     `ORDER_CANCELLED`, `PAYMENT_RECEIVED`, `REFUNDED`); these have `order_id` set
 
 Settings (env vars): `CART_HOLD_MINUTES`, `LOW_STOCK_THRESHOLD`, `LOW_STOCK_MAX_PER_CUSTOMER`.
 
@@ -415,6 +490,14 @@ Settings (env vars): `CART_HOLD_MINUTES`, `LOW_STOCK_THRESHOLD`, `LOW_STOCK_MAX_
 - **Notifications:** poll `GET /notifications?unread_only=true` every ~30 s and when the app comes
   back to the foreground; show a bell badge from `unread_count` and a snackbar for new ones.
 - **Order placed screen:** show `estimated_ready_minutes` / `estimated_ready_at`.
+- **Checkout:** let the customer pick "Pay online" or "Pay cash at counter" and send
+  `{"payment_method": "CASH_ON_PICKUP"}` for cash (no Razorpay step), `"UPI"` for Razorpay.
+- **Order tracking screen:** a stepper PLACED → PREPARING → READY → SERVED from `status` /
+  `timeline`; show `pickup_code` big; a Cancel button only when `can_cancel` is true; for cash with
+  `payment_status` `PENDING`, show "Pay Rs X at the counter". Refresh it when an order notification
+  arrives (or poll `GET /orders/{id}`).
+- **Staff app:** buttons per order for Start preparing / Ready / Take cash (pickup code + amount, shows
+  change) / Serve (pickup code); Serve is refused until `payment_status` is `PAID`.
 
 ## Business rules implemented
 
@@ -431,9 +514,11 @@ Settings (env vars): `CART_HOLD_MINUTES`, `LOW_STOCK_THRESHOLD`, `LOW_STOCK_MAX_
 - Repeated "place order" taps cannot create duplicate orders, because the cart is locked and then cleared.
 - Order items store the price at the time of the order.
 - Customers can only see their own orders.
+- Orders move PLACED → PREPARING → READY → SERVED one step at a time (the order row is locked, so
+  two staff taps can't skip or repeat a step); only a PLACED order can be cancelled.
+- Food is handed over only when the order is PAID and the customer's pickup code matches.
+- Cancelled orders return their stock and don't count towards "ordered in the last 24 h" or a customer's total spent.
 
-## Not in Demo 1 (planned)
+## Not done yet (planned)
 
-Payment, pickup slots, the full order status flow (ACCEPTED → PREPARING → READY → COLLECTED),
-pickup verification, cancellation, push notifications (FCM; in-app notifications are done),
-feedback, reports, admin management.
+Pickup slots, push notifications (FCM; in-app notifications are done), feedback, reports.

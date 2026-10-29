@@ -75,6 +75,10 @@ VIEWS = {
             r.name                                       AS role,
             o.status,
             o.total_amount,
+            o.payment_method,
+            o.payment_status,
+            o.paid_at,
+            o.cash_received,
             p.razorpay_payment_id                        AS payment_id,
             STRING_AGG(f.name || ' x' || oi.quantity, ', ' ORDER BY oi.id) AS items,
             o.created_at                                 AS placed_at,
@@ -87,6 +91,24 @@ VIEWS = {
         LEFT JOIN payments p ON p.order_id = o.id
         GROUP BY o.id, u.id, r.name, p.razorpay_payment_id
         ORDER BY o.created_at DESC
+    """,
+    # Every order's timeline, newest first: placed, preparing, ready, served/cancelled,
+    # cash received, refunded, and which staff member did it.
+    "order_timeline": """
+        SELECT
+            o.order_id,
+            cu.username                                  AS customer,
+            e.event,
+            e.created_at                                 AS at,
+            by_u.username                                AS done_by,
+            by_r.name                                    AS done_by_role,
+            e.note
+        FROM order_events e
+        JOIN orders o ON o.id = e.order_id
+        JOIN users cu ON cu.id = o.user_id
+        LEFT JOIN users by_u ON by_u.id = e.changed_by_id
+        LEFT JOIN roles by_r ON by_r.id = by_u.role_id
+        ORDER BY e.created_at DESC, e.id DESC
     """,
     # Every food item with its category, Veg / Non-Veg type and live stock.
     "items_overview": """

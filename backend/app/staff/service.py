@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
@@ -9,7 +10,7 @@ from app import activity
 from app.cart.service import CartOut, to_cart_out
 from app.database.models import Cart, FoodItem, Order
 from app.inventory import service as inventory_service
-from app.orders.schemas import OrderItemOut, order_item_out
+from app.orders.schemas import OrderEventOut, OrderItemOut, order_event_out, order_item_out
 
 
 class StaffOrderOut(BaseModel):
@@ -17,31 +18,62 @@ class StaffOrderOut(BaseModel):
     customer: str
     institute_id: str
     total: float
+    # PLACED -> PREPARING -> READY -> SERVED, or CANCELLED
     status: str
     created_at: Optional[datetime]
     estimated_ready_at: Optional[datetime]
     items: List[OrderItemOut]
     payment_id: Optional[str] = None
+    # UPI | CASH_ON_PICKUP
+    payment_method: str
+    # PENDING (collect cash before serving) | PAID | REFUND_PENDING | REFUNDED | CANCELLED
+    payment_status: str
+    paid_at: Optional[datetime] = None
+    cash_received: Optional[float] = None
+    change_given: Optional[float] = None
+    timeline: List[OrderEventOut]
+
+
+class PickupCodeIn(BaseModel):
+    # The 4-digit code shown in the customer's app.
+    pickup_code: str = Field(..., min_length=1, max_length=6, examples=["4821"])
+
+
+class CashPaymentIn(PickupCodeIn):
+    # Cash the customer handed over; may be more than the total (change is returned).
+    amount_received: Decimal = Field(..., gt=0, le=100000, examples=[200])
+
+
+class RefundIn(BaseModel):
+    # Needed only to hand back cash for a cancelled cash order.
+    pickup_code: Optional[str] = Field(None, max_length=6)
+
+
+def to_staff_order_out(o: Order) -> StaffOrderOut:
+    return StaffOrderOut(
+        order_id=o.order_id,
+        customer=o.user.username,
+        institute_id=o.user.institute_id,
+        total=o.total_amount,
+        status=o.status,
+        created_at=o.created_at,
+        estimated_ready_at=o.estimated_ready_at,
+        items=[order_item_out(oi) for oi in o.items],
+        payment_id=o.payment.razorpay_payment_id if o.payment else None,
+        payment_method=o.payment_method,
+        payment_status=o.payment_status,
+        paid_at=o.paid_at,
+        cash_received=o.cash_received,
+        change_given=o.cash_received - o.total_amount if o.cash_received is not None else None,
+        timeline=[order_event_out(e) for e in o.events],
+    )
 
 
 def list_orders(db: Session, status: Optional[str] = None) -> List[StaffOrderOut]:
     stmt = select(Order).order_by(Order.created_at.desc(), Order.id.desc())
     if status:
         stmt = stmt.where(Order.status == status.upper())
-    return [
-        StaffOrderOut(
-            order_id=o.order_id,
-            customer=o.user.username,
-            institute_id=o.user.institute_id,
-            total=o.total_amount,
-            status=o.status,
-            created_at=o.created_at,
-            estimated_ready_at=o.estimated_ready_at,
-            items=[order_item_out(oi) for oi in o.items],
-            payment_id=o.payment.razorpay_payment_id if o.payment else None,
-        )
-        for o in db.scalars(stmt).unique()
-    ]
+    return [to_staff_order_out(o) for o in db.scalars(stmt).unique()]
 
 
 # ---------- Inventory (stock) management ----------

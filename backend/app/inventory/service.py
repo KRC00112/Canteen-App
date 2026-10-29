@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.security import utcnow
 from app.config import CART_HOLD_MINUTES, LOW_STOCK_MAX_PER_CUSTOMER, LOW_STOCK_THRESHOLD
-from app.database.models import Cart, CartItem, FoodItem, Inventory, Order, OrderItem
+from app.database.models import ORDER_CANCELLED, Cart, CartItem, FoodItem, Inventory, Order, OrderItem
 
 # Same upper bound as the cart request schemas.
 MAX_CART_QUANTITY = 50
@@ -90,7 +90,7 @@ def units_ordered_last_24h(db: Session) -> Dict[int, int]:
     stmt = (
         select(OrderItem.food_item_id, func.sum(OrderItem.quantity))
         .join(Order)
-        .where(Order.created_at > utcnow() - timedelta(hours=24))
+        .where(Order.created_at > utcnow() - timedelta(hours=24), Order.status != ORDER_CANCELLED)
         .group_by(OrderItem.food_item_id)
     )
     return {food_id: int(units) for food_id, units in db.execute(stmt)}

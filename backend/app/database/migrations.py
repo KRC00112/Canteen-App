@@ -21,7 +21,36 @@ NEW_COLUMNS = [
     ("food_items", "removed_at", ""),
     ("users", "email", ""),
     ("orders", "payment_method", "NOT NULL DEFAULT 'UPI'"),
-    ("orders", "payment_status", "NOT NULL DEFAULT 'PAID'"),
+    ("orders", "paid_at", ""),
+    ("orders", "payment_status", "NOT NULL DEFAULT 'PENDING'"),
+    ("orders", "cash_received", ""),
+    ("orders", "pickup_code", ""),
+    ("payments", "refund_id", ""),
+    ("payments", "refunded_at", ""),
+    ("notifications", "order_id", ""),
+]
+
+# Run once, right after the column is added, to fill it in for existing rows.
+BACKFILLS = {
+    # Orders placed before this column existed were paid online if they have a payment;
+    # the rest (placed while payments were off) are collected at the counter.
+    ("orders", "payment_status"): [
+        "UPDATE orders SET payment_status = 'PAID', paid_at = created_at "
+        "WHERE id IN (SELECT order_id FROM payments WHERE order_id IS NOT NULL)"
+    ],
+}
+
+
+# Run on every start; each is a no-op once done.
+ALWAYS = [
+    # Payment methods were briefly saved as ONLINE / CASH; the app uses UPI / CASH_ON_PICKUP.
+    "UPDATE orders SET payment_method = 'UPI' WHERE payment_method = 'ONLINE'",
+    "UPDATE orders SET payment_method = 'CASH_ON_PICKUP' WHERE payment_method = 'CASH'",
+]
+# PostgreSQL only (SQLite doesn't enforce lengths or support ALTER COLUMN).
+ALWAYS_POSTGRES = [
+    "ALTER TABLE orders ALTER COLUMN payment_method TYPE VARCHAR(30)",
+    "ALTER TABLE orders ALTER COLUMN payment_method SET DEFAULT 'UPI'",
 ]
 
 
@@ -33,6 +62,8 @@ def add_missing_columns(engine: Engine) -> None:
                 continue
             col_type = Base.metadata.tables[table].c[column].type.compile(dialect=engine.dialect)
             conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type} {constraints}"))
+            for statement in BACKFILLS.get((table, column), []):
+                conn.execute(text(statement))
             if column == "food_type" and engine.dialect.name == "postgresql":
                 conn.execute(text(
                     "ALTER TABLE food_items ADD CONSTRAINT ck_food_items_food_type "
@@ -40,4 +71,6 @@ def add_missing_columns(engine: Engine) -> None:
                 ))
                 conn.execute(text("CREATE INDEX ix_food_items_food_type ON food_items (food_type)"))
         for statement in NEW_INDEXES:
+            conn.execute(text(statement))
+        for statement in ALWAYS + (ALWAYS_POSTGRES if engine.dialect.name == "postgresql" else []):
             conn.execute(text(statement))

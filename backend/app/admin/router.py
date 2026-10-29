@@ -64,8 +64,11 @@ def order_detail(order_id: str, admin: User = Depends(admin_only), db: Session =
 
 @router.get("/payments", response_model=List[AdminPaymentOut])
 def all_payments(
-    payment_status: Optional[Literal["CREATED", "PAID", "USED"]] = Query(
-        None, alias="status", description="CREATED = checkout started, PAID = verified, USED = order placed"
+    payment_status: Optional[Literal["CREATED", "PAID", "USED", "REFUND_PENDING", "REFUNDED"]] = Query(
+        None,
+        alias="status",
+        description="CREATED = checkout started, PAID = verified, USED = order placed, "
+        "REFUND_PENDING / REFUNDED = that order was cancelled",
     ),
     admin: User = Depends(admin_only),
     db: Session = Depends(get_db),

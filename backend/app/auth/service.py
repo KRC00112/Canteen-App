@@ -117,7 +117,16 @@ def login(
     )
 
 
-def logout(db: Session, session: UserSession) -> None:
+def logout(db: Session, session: UserSession, portal: Optional[str] = None) -> None:
+    """portal works like in login: only that account type can use this logout; None allows any."""
+    role = session.user.role.name
+    if portal is not None and role != portal:
+        actual = ROLE_LABELS.get(role, role)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"This is {_article(actual)} account, not {_article(ROLE_LABELS[portal])} account. "
+            f"Please use the {actual} logout",
+        )
     session.logged_out_at = utcnow()
     db.commit()
     activity.event("Logged out, session ended")
